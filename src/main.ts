@@ -1,8 +1,37 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
+import { Logger, ValidationPipe } from '@nestjs/common';
 
 async function bootstrap() {
+  const logger = new Logger('Bootstrap');
   const app = await NestFactory.create(AppModule);
-  await app.listen(process.env.PORT ?? 3000);
+
+  app.setGlobalPrefix('/api');
+
+  app.enableCors({
+    origin: '*',
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+    credentials: false,
+  });
+
+  app.useGlobalPipes(
+    new ValidationPipe({
+      whitelist: true,
+      forbidNonWhitelisted: true,
+      transform: true,
+      transformOptions: {
+        enableImplicitConversion: true,
+      },
+    }),
+  );
+  const port = process.env.PORT || 3500;
+  await app.listen(port);
+
+  logger.log(`Application is running on: http://localhost:${port}`);
+  logger.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
+  logger.log(
+    `Database: ${process.env.DB_NAME}@${process.env.DB_HOST}:${process.env.DB_PORT}`,
+  );
 }
 bootstrap();
