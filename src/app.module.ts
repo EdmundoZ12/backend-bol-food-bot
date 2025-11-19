@@ -7,6 +7,7 @@ import { DriverModule } from './driver/driver.module';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { databaseConfig } from './config/database.config';
+import { CloudinaryModule } from './cloudinary/cloudinary.module';
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -21,6 +22,7 @@ import { databaseConfig } from './config/database.config';
     CartModule,
     OrderModule,
     DriverModule,
+    CloudinaryModule,
   ],
   controllers: [],
   providers: [],

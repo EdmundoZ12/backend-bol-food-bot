@@ -12,7 +12,8 @@ export const databaseConfig = (): TypeOrmModuleOptions => ({
   username: process.env.DB_USER || 'postgres',
   password: process.env.DB_PASSWORD,
   database: process.env.DB_NAME || 'TesloDB',
-  entities: [User, Product, Driver, Cart, Order],
+  // entities: [User, Product, Driver, Cart, Order],
+  autoLoadEntities: true,
   synchronize: true, // TEMPORAL: crear tablas en producción
   logging: process.env.NODE_ENV === 'development',
   dropSchema: false,
