@@ -9,8 +9,11 @@ export class ProductImage {
   @Column('text')
   url: string;
 
-  @Column('boolean', { default: false })
+  @Column({ type: 'boolean', default: false })
   isPrimary: boolean;
+
+  @Column({ type: 'int', default: 0 })
+  orderPosition: number;
 
   @ManyToOne(() => Product, (product) => product.images, {
     onDelete: 'CASCADE',
