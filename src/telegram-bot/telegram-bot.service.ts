@@ -37,7 +37,7 @@ export class TelegramBotService implements OnModuleInit {
    * Se ejecuta cuando el módulo se inicializa
    */
   async onModuleInit() {
-    this.logger.log('🤖 Initializing Telegram Bot...');
+    this.logger.log(' Initializing Telegram Bot...');
     await this.startPolling();
   }
 
@@ -51,7 +51,7 @@ export class TelegramBotService implements OnModuleInit {
     }
 
     this.isPolling = true;
-    this.logger.log('✅ Bot is now polling for updates...');
+    this.logger.log(' Bot is now polling for updates...');
 
     while (this.isPolling) {
       try {
@@ -75,7 +75,7 @@ export class TelegramBotService implements OnModuleInit {
    */
   stopPolling() {
     this.isPolling = false;
-    this.logger.log('⛔ Polling stopped');
+    this.logger.log(' Polling stopped');
   }
 
   /**
@@ -105,7 +105,7 @@ export class TelegramBotService implements OnModuleInit {
     const userId = from.id.toString();
 
     this.logger.log(
-      `📩 Message from ${from.username || from.first_name}: ${
+      ` Message from ${from.username || from.first_name}: ${
         text || 'location'
       }`,
     );
@@ -170,7 +170,7 @@ export class TelegramBotService implements OnModuleInit {
     const data = callbackQuery.data;
     const userId = callbackQuery.from.id.toString();
 
-    this.logger.log(`🔘 Callback from ${userId}: ${data}`);
+    this.logger.log(` Callback from ${userId}: ${data}`);
 
     await this.telegramApi.answerCallbackQuery(callbackQuery.id);
 
