@@ -8,6 +8,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { databaseConfig } from './config/database.config';
 import { CloudinaryModule } from './cloudinary/cloudinary.module';
+import { TelegramBotModule } from './telegram-bot/telegram-bot.module';
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -23,6 +24,7 @@ import { CloudinaryModule } from './cloudinary/cloudinary.module';
     OrderModule,
     DriverModule,
     CloudinaryModule,
+    TelegramBotModule,
   ],
   controllers: [],
   providers: [],

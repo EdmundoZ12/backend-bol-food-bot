@@ -1,6 +1,12 @@
 import { Cart } from './cart.entity';
 import { Product } from '../../product/entities/product.entity';
-import { Column, CreateDateColumn, Entity, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
+import {
+  Column,
+  CreateDateColumn,
+  Entity,
+  ManyToOne,
+  PrimaryGeneratedColumn,
+} from 'typeorm';
 
 @Entity('cart_item')
 export class CartItem {
@@ -27,6 +33,8 @@ export class CartItem {
   })
   cart: Cart;
 
-  @ManyToOne(() => Product, (product) => product.cartItems)
+  @ManyToOne(() => Product, (product) => product.cartItems, {
+    eager: true, // ← Para cargar el producto automáticamente con sus imágenes
+  })
   product: Product;
 }

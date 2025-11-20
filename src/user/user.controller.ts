@@ -1,34 +1,46 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
+import { Controller, Get, Body, Patch, Param, Delete } from '@nestjs/common';
 import { UserService } from './user.service';
-import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 
-@Controller('user')
+@Controller('users')
 export class UserController {
   constructor(private readonly userService: UserService) {}
-
-  @Post()
-  create(@Body() createUserDto: CreateUserDto) {
-    return this.userService.create(createUserDto);
-  }
 
   @Get()
   findAll() {
     return this.userService.findAll();
   }
 
-  @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.userService.findOne(+id);
+  @Get(':telegramId')
+  findOne(@Param('telegramId') telegramId: string) {
+    return this.userService.findByTelegramId(telegramId);
   }
 
-  @Patch(':id')
-  update(@Param('id') id: string, @Body() updateUserDto: UpdateUserDto) {
-    return this.userService.update(+id, updateUserDto);
+  @Get(':telegramId/orders')
+  findOneWithOrders(@Param('telegramId') telegramId: string) {
+    return this.userService.findOneWithOrders(telegramId);
   }
 
-  @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.userService.remove(+id);
+  @Patch(':telegramId')
+  update(
+    @Param('telegramId') telegramId: string,
+    @Body() updateUserDto: UpdateUserDto,
+  ) {
+    return this.userService.update(telegramId, updateUserDto);
+  }
+
+  @Patch(':telegramId/deactivate')
+  deactivate(@Param('telegramId') telegramId: string) {
+    return this.userService.deactivate(telegramId);
+  }
+
+  @Patch(':telegramId/activate')
+  activate(@Param('telegramId') telegramId: string) {
+    return this.userService.activate(telegramId);
+  }
+
+  @Delete(':telegramId')
+  remove(@Param('telegramId') telegramId: string) {
+    return this.userService.remove(telegramId);
   }
 }

@@ -7,6 +7,7 @@ import { OrderItem } from './entities/order-item.entity';
 import { ProductModule } from '../product/product.module';
 import { DriverModule } from '../driver/driver.module';
 import { UserModule } from '../user/user.module';
+import { CartModule } from '../cart/cart.module';
 
 @Module({
   controllers: [OrderController],
@@ -15,8 +16,9 @@ import { UserModule } from '../user/user.module';
     ProductModule,
     DriverModule,
     UserModule,
+    CartModule,
   ],
   providers: [OrderService],
-  exports: [TypeOrmModule],
+  exports: [TypeOrmModule, OrderService],
 })
 export class OrderModule {}

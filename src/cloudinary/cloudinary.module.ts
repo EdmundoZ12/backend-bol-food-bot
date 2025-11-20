@@ -7,6 +7,6 @@ import { ConfigModule } from '@nestjs/config';
   imports: [ConfigModule],
   controllers: [CloudinaryController],
   providers: [CloudinaryService],
-  exports: [CloudinaryModule],
+  exports: [CloudinaryModule,CloudinaryService],
 })
 export class CloudinaryModule {}

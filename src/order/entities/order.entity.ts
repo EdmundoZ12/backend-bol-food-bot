@@ -1,9 +1,11 @@
 import {
   Column,
+  CreateDateColumn,
   Entity,
   ManyToOne,
   OneToMany,
   PrimaryGeneratedColumn,
+  UpdateDateColumn,
 } from 'typeorm';
 import { Driver } from '../../driver/entities/driver.entity';
 import { User } from '../../user/entities/user.entity';
@@ -23,42 +25,56 @@ export class Order {
       'PENDING',
       'CONFIRMED',
       'ASSIGNED',
-      'INTRANSIT',
+      'IN_TRANSIT',
       'DELIVERED',
       'CANCELLED',
     ],
+    default: 'PENDING',
   })
   status: string;
 
-  @Column({ type: 'enum', enum: ['CASH', 'QR'] })
-  paymentMethod: string;
+  @Column({ type: 'enum', enum: ['CASH', 'QR'], nullable: true })
+  paymentMethod: string | null;
 
-  @Column({ type: 'enum', enum: ['PENDING', 'COMPLETED', 'FAILED'] })
+  @Column({
+    type: 'enum',
+    enum: ['PENDING', 'COMPLETED', 'FAILED'],
+    default: 'PENDING',
+  })
   paymentStatus: string;
 
-  @Column({ type: 'text' })
-  deliveryAddress: string;
+  @Column({ type: 'text', nullable: true })
+  deliveryAddress: string | null;
 
-  @Column({ type: 'float' })
-  latitud: number;
+  @Column({ type: 'float', nullable: true })
+  latitude: number | null;
 
-  @Column({ type: 'float' })
-  longitude: number;
+  @Column({ type: 'float', nullable: true })
+  longitude: number | null;
 
-  @Column({ type: 'text' })
-  phone: string;
+  @Column({ type: 'text', nullable: true })
+  phone: string | null;
 
-  @Column({ type: 'text' })
-  notes: string;
+  @Column({ type: 'text', nullable: true })
+  notes: string | null;
 
-  @ManyToOne(() => Driver, (driver) => driver.orders, { onDelete: 'CASCADE' })
-  driver: Driver;
+  @ManyToOne(() => Driver, (driver) => driver.orders, {
+    nullable: true,
+  })
+  driver: Driver | null;
 
-  @ManyToOne(() => User, (user) => user.orders, { onDelete: 'CASCADE' })
+  @ManyToOne(() => User, (user) => user.orders)
   user: User;
 
   @OneToMany(() => OrderItem, (orderItem) => orderItem.order, {
     cascade: true,
+    eager: true,
   })
   orderItems: OrderItem[];
+
+  @CreateDateColumn()
+  createdAt: Date;
+
+  @UpdateDateColumn()
+  updatedAt: Date;
 }

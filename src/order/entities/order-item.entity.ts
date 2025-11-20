@@ -7,6 +7,9 @@ export class OrderItem {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
+  @Column('text') // ← AGREGAR ESTO
+  productName: string;
+
   @Column({ type: 'int' })
   quantity: number;
 
