@@ -27,12 +27,11 @@ export class Product {
   cartItems: CartItem[];
 
   @OneToMany(() => ProductImage, (image) => image.product, {
-    onDelete: 'CASCADE',
+    cascade: true,
+    eager: true,
   })
   images: ProductImage[];
 
-  @OneToMany(() => OrderItem, (orderItem) => orderItem.product, {
-    onDelete: 'CASCADE',
-  })
+  @OneToMany(() => OrderItem, (orderItem) => orderItem.product)
   orderItems: OrderItem[];
 }
