@@ -117,4 +117,27 @@ export class TelegramApiUtil {
       throw error;
     }
   }
+
+  /**
+   * Editar mensaje de texto
+   */
+  async editMessageText(
+    chatId: number,
+    messageId: number,
+    text: string,
+    replyMarkup?: any,
+  ) {
+    try {
+      await axios.post(`${this.apiUrl}/editMessageText`, {
+        chat_id: chatId,
+        message_id: messageId,
+        text,
+        parse_mode: 'Markdown',
+        reply_markup: replyMarkup,
+      });
+    } catch (error) {
+      this.logger.error('Error editing message:', error.message);
+      throw error;
+    }
+  }
 }

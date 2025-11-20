@@ -1,11 +1,29 @@
 export class CartKeyboard {
-  static cart() {
-    return {
-      inline_keyboard: [
-        [{ text: '✅ Confirmar Pedido', callback_data: 'checkout' }],
-        [{ text: '🛍️ Seguir Comprando', callback_data: 'view_menu' }],
-      ],
-    };
+  /**
+   * Teclado principal del carrito con items individuales
+   */
+  static cart(items: Array<{ id: string; productName: string; quantity: number }>) {
+    const keyboard: Array<Array<{ text: string; callback_data: string }>> = [];
+
+    // Botones para cada producto (incrementar/decrementar)
+    items.forEach((item) => {
+      keyboard.push([
+        { text: `${item.productName} (${item.quantity})`, callback_data: `cart_info_${item.id}` },
+      ]);
+      keyboard.push([
+        { text: '➖', callback_data: `cart_decr_${item.id}` },
+        { text: `${item.quantity}`, callback_data: `cart_noop_${item.id}` },
+        { text: '➕', callback_data: `cart_incr_${item.id}` },
+        { text: '🗑️', callback_data: `cart_remove_${item.id}` },
+      ]);
+    });
+
+    // Botones de acción
+    keyboard.push([{ text: '✅ Confirmar Pedido', callback_data: 'checkout' }]);
+    keyboard.push([{ text: '🛍️ Seguir Comprando', callback_data: 'view_menu' }]);
+    keyboard.push([{ text: '🗑️ Vaciar Carrito', callback_data: 'clear_cart' }]);
+
+    return { inline_keyboard: keyboard };
   }
 
   static emptyCart() {

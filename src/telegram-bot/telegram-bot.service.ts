@@ -194,6 +194,23 @@ export class TelegramBotService implements OnModuleInit {
       await this.productHandler.handleAddToCart(chatId, userId, productId);
     } else if (data === 'view_cart') {
       await this.cartHandler.handleCart(chatId, userId);
+    } else if (data.startsWith('cart_incr_')) {
+      const cartItemId = data.replace('cart_incr_', '');
+      const messageId = callbackQuery.message.message_id;
+      await this.cartHandler.handleIncrementItem(chatId, userId, cartItemId, messageId);
+    } else if (data.startsWith('cart_decr_')) {
+      const cartItemId = data.replace('cart_decr_', '');
+      const messageId = callbackQuery.message.message_id;
+      await this.cartHandler.handleDecrementItem(chatId, userId, cartItemId, messageId);
+    } else if (data.startsWith('cart_remove_')) {
+      const cartItemId = data.replace('cart_remove_', '');
+      const messageId = callbackQuery.message.message_id;
+      await this.cartHandler.handleRemoveItem(chatId, userId, cartItemId, messageId);
+    } else if (data === 'clear_cart') {
+      const messageId = callbackQuery.message.message_id;
+      await this.cartHandler.handleClearCart(chatId, userId, messageId);
+    } else if (data.startsWith('cart_noop_') || data.startsWith('cart_info_')) {
+      // No hacer nada, es solo informativo
     } else if (data === 'checkout') {
       await this.checkoutHandler.handleCheckout(chatId, userId);
     } else if (data === 'skip_notes') {
