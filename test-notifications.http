@@ -1,0 +1,73 @@
+### FLUJO COMPLETO DE PRUEBA REALISTA
+
+### 1. Ver productos disponibles
+GET http://localhost:3500/api/products/available
+
+### 2. Agregar producto al carrito (usa un productId real del paso 1)
+POST http://localhost:3500/api/cart/1190781276/items
+Content-Type: application/json
+
+{
+  "productId": "52599aa3-ba31-4ee1-bc86-e06eab152e65",
+  "quantity": 2
+}
+
+### 3. Ver el carrito
+GET http://localhost:3500/api/cart/1190781276
+
+### 4. Crear pedido desde el carrito
+POST http://localhost:3500/api/orders
+Content-Type: application/json
+
+{
+  "userId": "1190781276",
+  "paymentMethod": "CASH",
+  "notes": "Sin cebolla por favor"
+}
+
+### 5. Ver pedidos del usuario (copia el ID del pedido creado)
+GET http://localhost:3500/api/orders/user/1190781276
+
+### 6. Actualizar ubicación del pedido
+PATCH http://localhost:3500/api/orders/5f26b30b-ec54-44b9-8c43-e5f1052cf05d/location
+Content-Type: application/json
+
+{
+  "deliveryAddress": "Calle Falsa 123",
+  "latitude": -16.5000,
+  "longitude": -68.1500,
+  "phone": "70000000"
+}
+
+### 7. Registrar token FCM
+POST http://localhost:3500/api/notifications/register-token
+Content-Type: application/json
+
+{
+  "userId": "1190781276",
+  "token": "eY1lnKN8M2j7Bio7gi_VV5:APA91bHKyhl12h1J0_NQtPvM4DTNLk3y35orOvtMsszgp_Zq1UlzhhoT2VQz5Sw0VxucF-Dzta1KyYL-g-Z_PIB3ZndR3meqRnTZ6w1LJKFmphTOGGisRrE",
+  "deviceType": "web"
+}
+
+### 8. Enviar notificación de actualización de pedido
+POST http://localhost:3500/api/notifications/order-update
+Content-Type: application/json
+
+{
+  "orderId": "81730517-17b2-4d70-a883-c21f3466072e",
+  "userId": "1190781276",
+  "status": "confirmed"
+}
+
+### 9 notificación de prueba
+POST http://localhost:3500/api/notifications/test
+Content-Type: application/json
+{
+  "token": "eY1lnKN8M2j7Bio7gi_VV5:APA91bHKyhl12h1J0_NQtPvM4DTNLk3y35orOvtMsszgp_Zq1UlzhhoT2VQz5Sw0VxucF-Dzta1KyYL-g-Z_PIB3ZndR3meqRnTZ6w1LJKFmphTOGGisRrE",
+  "title": "🍔 Prueba Real Bol Food Bot",
+  "body": "Esta notificación incluye el logo de Cloudinary"
+}
+
+
+### 10. Ver pedidos del usuario
+GET http://localhost:3500/api/orders/user/1190781276

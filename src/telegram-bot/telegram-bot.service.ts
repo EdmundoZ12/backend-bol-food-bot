@@ -38,7 +38,10 @@ export class TelegramBotService implements OnModuleInit {
    */
   async onModuleInit() {
     this.logger.log(' Initializing Telegram Bot...');
-    await this.startPolling();
+    // Iniciar polling de forma asíncrona sin bloquear
+    this.startPolling().catch((error) => {
+      this.logger.error('Failed to start polling:', error);
+    });
   }
 
   /**
@@ -105,8 +108,7 @@ export class TelegramBotService implements OnModuleInit {
     const userId = from.id.toString();
 
     this.logger.log(
-      ` Message from ${from.username || from.first_name}: ${
-        text || 'location'
+      ` Message from ${from.username || from.first_name}: ${text || 'location'
       }`,
     );
 
