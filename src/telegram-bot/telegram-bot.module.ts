@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TelegramBotService } from './telegram-bot.service';
+import { TelegramBotController } from './telegram-bot.controller';
 import { UserModule } from '../user/user.module';
 import { ProductModule } from '../product/product.module';
 import { CartModule } from '../cart/cart.module';
@@ -17,9 +18,10 @@ import { CheckoutHandler } from './handlers/checkout.handler';
 
 @Module({
   imports: [UserModule, ProductModule, CartModule, OrderModule],
+  controllers: [TelegramBotController],
   providers: [
     TelegramBotService,
-    TelegramApiUtil, // ← Agregar aquí
+    TelegramApiUtil,
     StartHandler,
     MenuHandler,
     ProductHandler,

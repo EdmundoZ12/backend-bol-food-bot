@@ -17,69 +17,64 @@ interface TelegramUpdate {
 @Injectable()
 export class TelegramBotService implements OnModuleInit {
   private readonly logger = new Logger(TelegramBotService.name);
-  private offset: number = 0;
-  private isPolling: boolean = false;
 
   constructor(
     private readonly configService: ConfigService,
     private readonly userService: UserService,
-    private readonly telegramApi: TelegramApiUtil, // ← Inyectar directamente
+    private readonly telegramApi: TelegramApiUtil,
     private readonly startHandler: StartHandler,
     private readonly menuHandler: MenuHandler,
     private readonly productHandler: ProductHandler,
     private readonly cartHandler: CartHandler,
     private readonly checkoutHandler: CheckoutHandler,
-  ) {
-    // Ya no necesitas crear la instancia aquí
-  }
+  ) {}
 
   /**
    * Se ejecuta cuando el módulo se inicializa
    */
   async onModuleInit() {
-    this.logger.log(' Initializing Telegram Bot...');
-    await this.startPolling();
+    this.logger.log('Initializing Telegram Bot in WEBHOOK mode...');
+    await this.setupWebhook();
   }
 
   /**
-   * Inicia el polling para recibir mensajes
+   * Configura el webhook automáticamente al iniciar
    */
-  async startPolling() {
-    if (this.isPolling) {
-      this.logger.warn('Polling is already running');
+  private async setupWebhook() {
+    const appUrl = this.configService.get<string>('APP_URL');
+
+    if (!appUrl) {
+      this.logger.warn(
+        'APP_URL not configured. Webhook will not be set automatically.',
+      );
+      this.logger.warn(
+        'Set APP_URL in your environment variables to enable automatic webhook setup.',
+      );
       return;
     }
 
-    this.isPolling = true;
-    this.logger.log(' Bot is now polling for updates...');
+    const webhookUrl = `${appUrl}/api/telegram/webhook`;
+    this.logger.log(`Setting webhook to: ${webhookUrl}`);
 
-    while (this.isPolling) {
-      try {
-        const updates = await this.telegramApi.getUpdates(this.offset);
+    const success = await this.telegramApi.setWebhook(webhookUrl);
 
-        for (const update of updates) {
-          await this.handleUpdate(update);
-          this.offset = update.update_id + 1;
-        }
-      } catch (error) {
-        this.logger.error('Error in polling:', error.message);
-        await this.sleep(3000);
-      }
-
-      await this.sleep(1000);
+    if (success) {
+      this.logger.log('Webhook configured successfully!');
+      this.logger.log('Bot is now listening for updates via webhook...');
+    } else {
+      this.logger.error('Failed to configure webhook. Check your APP_URL.');
     }
   }
 
   /**
-   * Detiene el polling
+   * Obtener información del webhook actual
    */
-  stopPolling() {
-    this.isPolling = false;
-    this.logger.log(' Polling stopped');
+  async getWebhookInfo() {
+    return await this.telegramApi.getWebhookInfo();
   }
 
   /**
-   * Maneja cada update recibido
+   * Maneja cada update recibido desde el webhook
    */
   async handleUpdate(update: TelegramUpdate) {
     try {
@@ -104,11 +99,7 @@ export class TelegramBotService implements OnModuleInit {
     const from = message.from;
     const userId = from.id.toString();
 
-    this.logger.log(
-      ` Message from ${from.username || from.first_name}: ${
-        text || 'location'
-      }`,
-    );
+    this.logger.log(`Message from ${from.username || from.first_name}: ${text || 'location'}`);
 
     // Registrar o actualizar usuario
     await this.userService.upsert({
@@ -170,7 +161,7 @@ export class TelegramBotService implements OnModuleInit {
     const data = callbackQuery.data;
     const userId = callbackQuery.from.id.toString();
 
-    this.logger.log(` Callback from ${userId}: ${data}`);
+    this.logger.log(`Callback from ${userId}: ${data}`);
 
     await this.telegramApi.answerCallbackQuery(callbackQuery.id);
 
@@ -232,12 +223,5 @@ export class TelegramBotService implements OnModuleInit {
         userId,
       );
     }
-  }
-
-  /**
-   * Sleep helper
-   */
-  private sleep(ms: number): Promise<void> {
-    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 }
