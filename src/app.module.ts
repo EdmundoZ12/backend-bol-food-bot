@@ -10,6 +10,8 @@ import { databaseConfig } from './config/database.config';
 import { CloudinaryModule } from './cloudinary/cloudinary.module';
 import { TelegramBotModule } from './telegram-bot/telegram-bot.module';
 import { AuthModule } from './auth/auth.module';
+import { CommonModule } from './common/common.module';
+
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -19,6 +21,7 @@ import { AuthModule } from './auth/auth.module';
       inject: [ConfigService],
       useFactory: () => databaseConfig(),
     }),
+    CommonModule, // ← Agregar aquí
     UserModule,
     ProductModule,
     CartModule,

@@ -7,6 +7,7 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 import { Order } from '../../order/entities/order.entity';
+import { DriverLocation } from './driver-location.entity';
 
 export enum DriverStatus {
   AVAILABLE = 'AVAILABLE',
@@ -50,8 +51,21 @@ export class Driver {
   @Column({ type: 'boolean', default: true })
   isActive: boolean;
 
+  // Última ubicación conocida (para búsqueda rápida)
+  @Column({ type: 'float', nullable: true })
+  lastLatitude: number | null;
+
+  @Column({ type: 'float', nullable: true })
+  lastLongitude: number | null;
+
+  @Column({ type: 'timestamp', nullable: true })
+  lastLocationUpdate: Date | null;
+
   @OneToMany(() => Order, (order) => order.driver)
   orders: Order[];
+
+  @OneToMany(() => DriverLocation, (location) => location.driver)
+  locations: DriverLocation[];
 
   @CreateDateColumn()
   createdAt: Date;

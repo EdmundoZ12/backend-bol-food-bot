@@ -5,7 +5,12 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Order } from './entities/order.entity';
+import {
+  Order,
+  OrderStatus,
+  PaymentMethod,
+  PaymentStatus,
+} from './entities/order.entity';
 import { OrderItem } from './entities/order-item.entity';
 import { CartService } from '../cart/cart.service';
 import { UserService } from '../user/user.service';
@@ -58,9 +63,11 @@ export class OrderService {
     // Crear orden
     const order = this.orderRepository.create();
     order.totalAmount = totalAmount;
-    order.status = 'PENDING';
-    order.paymentMethod = paymentMethod || null;
-    order.paymentStatus = 'PENDING';
+    order.status = OrderStatus.PENDING;
+    order.paymentMethod = paymentMethod
+      ? PaymentMethod[paymentMethod as keyof typeof PaymentMethod]
+      : null;
+    order.paymentStatus = PaymentStatus.PENDING;
     order.notes = notes || null;
     order.phone = user.phone || null;
     order.user = user;
@@ -105,7 +112,7 @@ export class OrderService {
     method: 'CASH' | 'QR',
   ): Promise<Order> {
     const order = await this.findOne(orderId);
-    order.paymentMethod = method;
+    order.paymentMethod = PaymentMethod[method];
     return this.orderRepository.save(order);
   }
 
@@ -115,14 +122,14 @@ export class OrderService {
   async confirmPayment(orderId: string): Promise<Order> {
     const order = await this.findOne(orderId);
 
-    if (order.paymentMethod === 'CASH') {
+    if (order.paymentMethod === PaymentMethod.CASH) {
       // Para efectivo, el pago queda pendiente hasta la entrega
-      order.paymentStatus = 'PENDING';
-      order.status = 'CONFIRMED';
-    } else if (order.paymentMethod === 'QR') {
+      order.paymentStatus = PaymentStatus.PENDING;
+      order.status = OrderStatus.CONFIRMED;
+    } else if (order.paymentMethod === PaymentMethod.QR) {
       // Para QR, asumimos que el usuario confirma que pagó
-      order.paymentStatus = 'COMPLETED';
-      order.status = 'CONFIRMED';
+      order.paymentStatus = PaymentStatus.COMPLETED;
+      order.status = OrderStatus.CONFIRMED;
     }
 
     return this.orderRepository.save(order);
@@ -152,16 +159,7 @@ export class OrderService {
   /**
    * Actualizar estado de la orden
    */
-  async updateStatus(
-    orderId: string,
-    status:
-      | 'PENDING'
-      | 'CONFIRMED'
-      | 'ASSIGNED'
-      | 'IN_TRANSIT'
-      | 'DELIVERED'
-      | 'CANCELLED',
-  ): Promise<Order> {
+  async updateStatus(orderId: string, status: OrderStatus): Promise<Order> {
     const order = await this.findOne(orderId);
     order.status = status;
     return this.orderRepository.save(order);
@@ -174,7 +172,7 @@ export class OrderService {
     const order = await this.findOne(orderId);
 
     order.driver = { id: driverId } as any;
-    order.status = 'ASSIGNED';
+    order.status = OrderStatus.ASSIGNED;
 
     return this.orderRepository.save(order);
   }
@@ -215,7 +213,7 @@ export class OrderService {
   /**
    * Obtener órdenes por estado
    */
-  async findByStatus(status: string): Promise<Order[]> {
+  async findByStatus(status: OrderStatus): Promise<Order[]> {
     return this.orderRepository.find({
       where: { status },
       relations: ['orderItems', 'user', 'driver'],
@@ -238,7 +236,7 @@ export class OrderService {
    */
   async findPendingAssignment(): Promise<Order[]> {
     return this.orderRepository.find({
-      where: { status: 'CONFIRMED' },
+      where: { status: OrderStatus.CONFIRMED },
       relations: ['orderItems', 'user'],
       order: { createdAt: 'ASC' },
     });
@@ -270,11 +268,11 @@ export class OrderService {
   async cancel(orderId: string, reason?: string): Promise<Order> {
     const order = await this.findOne(orderId);
 
-    if (order.status === 'DELIVERED') {
+    if (order.status === OrderStatus.DELIVERED) {
       throw new BadRequestException('Cannot cancel a delivered order');
     }
 
-    order.status = 'CANCELLED';
+    order.status = OrderStatus.CANCELLED;
     if (reason) {
       order.notes = `${
         order.notes || ''
@@ -290,11 +288,11 @@ export class OrderService {
   async markAsDelivered(orderId: string): Promise<Order> {
     const order = await this.findOne(orderId);
 
-    order.status = 'DELIVERED';
+    order.status = OrderStatus.DELIVERED;
 
     // Si es pago en efectivo, marcar como completado al entregar
-    if (order.paymentMethod === 'CASH') {
-      order.paymentStatus = 'COMPLETED';
+    if (order.paymentMethod === PaymentMethod.CASH) {
+      order.paymentStatus = PaymentStatus.COMPLETED;
     }
 
     return this.orderRepository.save(order);
@@ -306,7 +304,7 @@ export class OrderService {
   async getOrderSummary(orderId: string): Promise<{
     orderId: string;
     status: string;
-    paymentMethod: string | null; // ← Cambiar aquí
+    paymentMethod: string | null;
     paymentStatus: string;
     totalAmount: number;
     items: Array<{
@@ -315,9 +313,9 @@ export class OrderService {
       unitPrice: number;
       subtotal: number;
     }>;
-    deliveryAddress?: string | null; // ← Cambiar aquí
-    notes?: string | null; // ← Cambiar aquí
-    phone?: string | null; // ← Cambiar aquí
+    deliveryAddress?: string | null;
+    notes?: string | null;
+    phone?: string | null;
   }> {
     const order = await this.findOne(orderId);
 
@@ -361,12 +359,12 @@ export class OrderService {
       cancelled,
     ] = await Promise.all([
       this.orderRepository.count(),
-      this.orderRepository.count({ where: { status: 'PENDING' } }),
-      this.orderRepository.count({ where: { status: 'CONFIRMED' } }),
-      this.orderRepository.count({ where: { status: 'ASSIGNED' } }),
-      this.orderRepository.count({ where: { status: 'IN_TRANSIT' } }),
-      this.orderRepository.count({ where: { status: 'DELIVERED' } }),
-      this.orderRepository.count({ where: { status: 'CANCELLED' } }),
+      this.orderRepository.count({ where: { status: OrderStatus.PENDING } }),
+      this.orderRepository.count({ where: { status: OrderStatus.CONFIRMED } }),
+      this.orderRepository.count({ where: { status: OrderStatus.ASSIGNED } }),
+      this.orderRepository.count({ where: { status: OrderStatus.IN_TRANSIT } }),
+      this.orderRepository.count({ where: { status: OrderStatus.DELIVERED } }),
+      this.orderRepository.count({ where: { status: OrderStatus.CANCELLED } }),
     ]);
 
     return {

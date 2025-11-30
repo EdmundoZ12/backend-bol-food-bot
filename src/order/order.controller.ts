@@ -5,15 +5,20 @@ import {
   Body,
   Patch,
   Param,
-  Query,
+  BadRequestException,
 } from '@nestjs/common';
 import { OrderService } from './order.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderDto } from './dto/update-order.dto';
+import { OrderStatus } from './entities/order.entity';
+import { OrderAssignmentService } from '../common/services/order-assignment.service';
 
 @Controller('orders')
 export class OrderController {
-  constructor(private readonly orderService: OrderService) {}
+  constructor(
+    private readonly orderService: OrderService,
+    private readonly orderAssignmentService: OrderAssignmentService,
+  ) {}
 
   // Crear orden desde carrito
   @Post()
@@ -36,7 +41,12 @@ export class OrderController {
   // Obtener órdenes por estado
   @Get('status/:status')
   findByStatus(@Param('status') status: string) {
-    return this.orderService.findByStatus(status);
+    const orderStatus =
+      OrderStatus[status.toUpperCase() as keyof typeof OrderStatus];
+    if (!orderStatus) {
+      throw new BadRequestException(`Invalid status: ${status}`);
+    }
+    return this.orderService.findByStatus(orderStatus);
   }
 
   // Obtener órdenes pendientes de asignación
@@ -104,10 +114,24 @@ export class OrderController {
   // Actualizar estado
   @Patch(':id/status')
   updateStatus(@Param('id') id: string, @Body('status') status: string) {
-    return this.orderService.updateStatus(id, status as any);
+    const orderStatus =
+      OrderStatus[status.toUpperCase() as keyof typeof OrderStatus];
+    if (!orderStatus) {
+      throw new BadRequestException(`Invalid status: ${status}`);
+    }
+    return this.orderService.updateStatus(id, orderStatus);
   }
 
-  // Asignar conductor
+  /**
+   * NUEVO: Iniciar asignación de pedido (buscar driver)
+   * POST /api/orders/:id/assign
+   */
+  @Post(':id/assign')
+  assignOrder(@Param('id') id: string) {
+    return this.orderAssignmentService.assignOrder(id);
+  }
+
+  // Asignar conductor manualmente (legacy)
   @Patch(':id/assign-driver')
   assignDriver(@Param('id') id: string, @Body('driverId') driverId: string) {
     return this.orderService.assignDriver(id, driverId);

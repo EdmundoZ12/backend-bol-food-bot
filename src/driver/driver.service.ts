@@ -6,8 +6,10 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Driver, DriverStatus } from './entities/driver.entity';
+import { DriverLocation } from './entities/driver-location.entity';
 import { CreateDriverDto } from './dto/create-driver.dto';
 import { UpdateDriverDto } from './dto/update-driver.dto';
+import { DistanceService } from '../common/services/distance.service';
 import * as bcrypt from 'bcrypt';
 
 @Injectable()
@@ -15,6 +17,9 @@ export class DriverService {
   constructor(
     @InjectRepository(Driver)
     private readonly driverRepository: Repository<Driver>,
+    @InjectRepository(DriverLocation)
+    private readonly driverLocationRepository: Repository<DriverLocation>,
+    private readonly distanceService: DistanceService,
   ) {}
 
   async create(createDriverDto: CreateDriverDto): Promise<Driver> {
@@ -44,6 +49,9 @@ export class DriverService {
         'vehicle',
         'status',
         'isActive',
+        'lastLatitude',
+        'lastLongitude',
+        'lastLocationUpdate',
         'createdAt',
       ],
     });
@@ -76,6 +84,8 @@ export class DriverService {
         'password',
         'name',
         'lastname',
+        'phone',
+        'vehicle',
         'status',
         'isActive',
         'appToken',
@@ -119,5 +129,74 @@ export class DriverService {
     hashedPassword: string,
   ): Promise<boolean> {
     return bcrypt.compare(plainPassword, hashedPassword);
+  }
+
+  async updateLocation(
+    driverId: string,
+    latitude: number,
+    longitude: number,
+    accuracy?: number,
+    speed?: number,
+    heading?: number,
+  ): Promise<DriverLocation> {
+    const driver = await this.findOne(driverId);
+
+    driver.lastLatitude = latitude;
+    driver.lastLongitude = longitude;
+    driver.lastLocationUpdate = new Date();
+    await this.driverRepository.save(driver);
+
+    const location = this.driverLocationRepository.create({
+      driver,
+      latitude,
+      longitude,
+      accuracy,
+      speed,
+      heading,
+    });
+
+    return this.driverLocationRepository.save(location);
+  }
+
+  async findAvailableDriversSortedByDistance(): Promise<
+    Array<Driver & { distanceToRestaurant: number }>
+  > {
+    const availableDrivers = await this.driverRepository.find({
+      where: {
+        status: DriverStatus.AVAILABLE,
+        isActive: true,
+      },
+    });
+
+    const driversWithDistance = availableDrivers
+      .filter((driver) => driver.lastLatitude && driver.lastLongitude)
+      .map((driver) => {
+        const distanceToRestaurant =
+          this.distanceService.calculateDistanceFromRestaurant(
+            driver.lastLatitude!,
+            driver.lastLongitude!,
+          );
+        return { ...driver, distanceToRestaurant };
+      });
+
+    driversWithDistance.sort(
+      (a, b) => a.distanceToRestaurant - b.distanceToRestaurant,
+    );
+
+    return driversWithDistance;
+  }
+
+  async findNearestAvailableDriver(): Promise<
+    (Driver & { distanceToRestaurant: number }) | null
+  > {
+    const drivers = await this.findAvailableDriversSortedByDistance();
+    return drivers.length > 0 ? drivers[0] : null;
+  }
+
+  async findAvailableDriversExcluding(
+    excludeIds: string[],
+  ): Promise<Array<Driver & { distanceToRestaurant: number }>> {
+    const allDrivers = await this.findAvailableDriversSortedByDistance();
+    return allDrivers.filter((driver) => !excludeIds.includes(driver.id));
   }
 }
