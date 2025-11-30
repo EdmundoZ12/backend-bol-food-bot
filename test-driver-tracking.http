@@ -1,0 +1,165 @@
+# ========================================
+# PRUEBAS DE TRACKING Y ASIGNACIÓN DE REPARTIDORES
+# ========================================
+
+### CONFIGURACIÓN
+@baseUrl = http://localhost:3500/api
+
+# ========================================
+# 1. GESTIÓN DE REPARTIDORES
+# ========================================
+
+### 1.1 Crear repartidor de prueba
+POST {{baseUrl}}/driver
+Content-Type: application/json
+
+{
+  "appToken": "driver-token-001",
+  "name": "Juan",
+  "lastname": "Pérez",
+  "phone": "70123456",
+  "vehicle": "Moto Honda 125cc",
+  "status": "AVAILABLE",
+  "telegramId": "123456789"
+}
+
+### 1.2 Crear segundo repartidor (más lejos)
+POST {{baseUrl}}/driver
+Content-Type: application/json
+
+{
+  "appToken": "driver-token-002",
+  "name": "María",
+  "lastname": "García",
+  "phone": "71234567",
+  "vehicle": "Bicicleta",
+  "status": "AVAILABLE",
+  "telegramId": "987654321"
+}
+
+### 1.3 Ver todos los repartidores
+GET {{baseUrl}}/driver
+
+### 1.4 Ver un repartidor específico
+GET {{baseUrl}}/driver/DRIVER_ID_AQUI
+
+# ========================================
+# 2. ACTUALIZACIÓN DE UBICACIONES
+# ========================================
+
+### 2.1 Actualizar ubicación del repartidor 1 (cerca del restaurante)
+# Restaurante: -16.5000, -68.1500
+# Repartidor 1: -16.5010, -68.1510 (aprox. 150 metros)
+PATCH {{baseUrl}}/driver/DRIVER_ID_1/location
+Content-Type: application/json
+
+{
+  "latitude": -17.778716,
+  "longitude": -63.175447
+}
+
+### 2.2 Actualizar ubicación del repartidor 2 (más lejos)
+# Repartidor 2: -16.5030, -68.1530 (aprox. 450 metros)
+PATCH {{baseUrl}}/driver/DRIVER_ID_2/location
+Content-Type: application/json
+
+{
+  "latitude": -17.777534,
+  "longitude": -63.161951
+}
+
+### 2.3 Ver historial de ubicaciones de un repartidor
+GET {{baseUrl}}/driver/DRIVER_ID_1/location-history?limit=10
+
+# ========================================
+# 3. BÚSQUEDA DE REPARTIDORES CERCANOS
+# ========================================
+
+### 3.1 Buscar repartidores cercanos al restaurante
+GET {{baseUrl}}/driver/nearby/search?latitude=-16.5000&longitude=-68.1500&radius=5
+
+### 3.2 Buscar repartidores cercanos a una ubicación específica
+GET {{baseUrl}}/driver/nearby/search?latitude=-16.5020&longitude=-68.1520&radius=2
+
+# ========================================
+# 4. ASIGNACIÓN DE PEDIDOS
+# ========================================
+
+### 4.1 Asignar pedido al repartidor más cercano
+POST {{baseUrl}}/driver/orders/ORDER_ID_AQUI/assign
+
+### 4.2 Ver historial de asignaciones de un pedido
+GET {{baseUrl}}/driver/orders/ORDER_ID_AQUI/assignment-history
+
+# ========================================
+# 5. ACEPTAR / RECHAZAR PEDIDOS
+# ========================================
+
+### 5.1 Aceptar pedido
+POST {{baseUrl}}/driver/orders/ORDER_ID_AQUI/accept
+Content-Type: application/json
+
+{
+  "driverId": "DRIVER_ID_AQUI"
+}
+
+### 5.2 Rechazar pedido (se reasignará automáticamente)
+POST {{baseUrl}}/driver/orders/ORDER_ID_AQUI/reject
+Content-Type: application/json
+
+{
+  "driverId": "DRIVER_ID_AQUI"
+}
+
+# ========================================
+# 6. GESTIÓN DE ESTADOS
+# ========================================
+
+### 6.1 Cambiar repartidor a BUSY
+PATCH {{baseUrl}}/driver/DRIVER_ID_AQUI/status
+Content-Type: application/json
+
+{
+  "status": "BUSY"
+}
+
+### 6.2 Cambiar repartidor a AVAILABLE
+PATCH {{baseUrl}}/driver/DRIVER_ID_AQUI/status
+Content-Type: application/json
+
+{
+  "status": "AVAILABLE"
+}
+
+### 6.3 Cambiar repartidor a OFFLINE
+PATCH {{baseUrl}}/driver/DRIVER_ID_AQUI/status
+Content-Type: application/json
+
+{
+  "status": "OFFLINE"
+}
+
+# ========================================
+# 7. FLUJO COMPLETO DE PRUEBA
+# ========================================
+
+### PASO 1: Crear repartidores (ejecutar 1.1 y 1.2)
+### PASO 2: Actualizar ubicaciones (ejecutar 2.1 y 2.2)
+### PASO 3: Buscar cercanos (ejecutar 3.1)
+### PASO 4: Crear un pedido (usar endpoint de orders)
+### PASO 5: Asignar pedido (ejecutar 4.1)
+### PASO 6: Ver notificación en Telegram del repartidor
+### PASO 7: Aceptar o rechazar pedido (ejecutar 5.1 o 5.2)
+### PASO 8: Ver historial de asignaciones (ejecutar 4.2)
+
+# ========================================
+# NOTAS IMPORTANTES
+# ========================================
+# 
+# - Reemplaza DRIVER_ID_AQUI con IDs reales de repartidores
+# - Reemplaza ORDER_ID_AQUI con IDs reales de pedidos
+# - Las coordenadas de ejemplo están cerca de La Paz, Bolivia
+# - El sistema calcula distancias en METROS para mayor precisión
+# - Los repartidores reciben notificaciones por Telegram
+# - Si un repartidor rechaza, se reasigna automáticamente al siguiente
+#
