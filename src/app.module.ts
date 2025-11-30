@@ -9,6 +9,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { databaseConfig } from './config/database.config';
 import { CloudinaryModule } from './cloudinary/cloudinary.module';
 import { TelegramBotModule } from './telegram-bot/telegram-bot.module';
+import { AuthModule } from './auth/auth.module';
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -25,6 +26,7 @@ import { TelegramBotModule } from './telegram-bot/telegram-bot.module';
     DriverModule,
     CloudinaryModule,
     TelegramBotModule,
+    AuthModule,
   ],
   controllers: [],
   providers: [],
