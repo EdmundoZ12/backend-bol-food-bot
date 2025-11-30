@@ -2,6 +2,7 @@ import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { DriverService } from '../driver/driver.service';
 import { JwtService } from '@nestjs/jwt';
 import { LoginDriverDto } from './dto/login-driver.dto';
+import { DriverStatus } from '../driver/entities/driver.entity';
 
 export interface JwtPayload {
   sub: string;
@@ -49,10 +50,13 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    // Actualizar appToken si se proporciona
+    // Actualizar appToken
     if (appToken) {
       await this.driverService.updateAppToken(driver.id, appToken);
     }
+
+    // Cambiar estado a AVAILABLE al hacer login
+    await this.driverService.updateStatus(driver.id, DriverStatus.AVAILABLE);
 
     const payload: JwtPayload = {
       sub: driver.id,
@@ -67,13 +71,18 @@ export class AuthService {
         email: driver.email,
         name: driver.name,
         lastname: driver.lastname,
-        status: driver.status,
+        status: DriverStatus.AVAILABLE,
       },
     };
   }
 
   async logout(driverId: string): Promise<{ message: string }> {
+    // Limpiar appToken
     await this.driverService.updateAppToken(driverId, null);
+
+    // Cambiar estado a OFFLINE
+    await this.driverService.updateStatus(driverId, DriverStatus.OFFLINE);
+
     return { message: 'Logged out successfully' };
   }
 
