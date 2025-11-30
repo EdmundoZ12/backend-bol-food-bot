@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { OrderService } from './order.service';
 import { OrderController } from './order.controller';
 import { TypeOrmModule } from '@nestjs/typeorm';
@@ -8,17 +8,21 @@ import { ProductModule } from '../product/product.module';
 import { DriverModule } from '../driver/driver.module';
 import { UserModule } from '../user/user.module';
 import { CartModule } from '../cart/cart.module';
+import { NotificationModule } from '../notification/notification.module';
+import { TelegramBotModule } from '../telegram-bot/telegram-bot.module';
 
 @Module({
   controllers: [OrderController],
   imports: [
     TypeOrmModule.forFeature([Order, OrderItem]),
     ProductModule,
-    DriverModule,
+    forwardRef(() => DriverModule),
     UserModule,
     CartModule,
+    NotificationModule,
+    TelegramBotModule,
   ],
   providers: [OrderService],
   exports: [TypeOrmModule, OrderService],
 })
-export class OrderModule {}
+export class OrderModule { }

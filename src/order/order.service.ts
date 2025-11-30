@@ -2,15 +2,24 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  Inject,
+  forwardRef,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, LessThan } from 'typeorm';
+import { Cron } from '@nestjs/schedule';
 import { Order } from './entities/order.entity';
 import { OrderItem } from './entities/order-item.entity';
 import { CartService } from '../cart/cart.service';
 import { UserService } from '../user/user.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderDto } from './dto/update-order.dto';
+import { ConfigService } from '@nestjs/config';
+import { calculateDistance } from '../common/utils/distance.util';
+
+import { DriverService } from '../driver/driver.service';
+import { NotificationService } from '../notification/notification.service';
+import { TelegramApiUtil } from '../telegram-bot/utils/telegram-api.util';
 
 @Injectable()
 export class OrderService {
@@ -21,7 +30,12 @@ export class OrderService {
     private readonly orderItemRepository: Repository<OrderItem>,
     private readonly cartService: CartService,
     private readonly userService: UserService,
-  ) {}
+    private readonly configService: ConfigService,
+    @Inject(forwardRef(() => DriverService))
+    private readonly driverService: DriverService,
+    private readonly notificationService: NotificationService,
+    private readonly telegramApi: TelegramApiUtil,
+  ) { }
 
   /**
    * Crear orden desde el carrito
@@ -158,13 +172,47 @@ export class OrderService {
       | 'PENDING'
       | 'CONFIRMED'
       | 'ASSIGNED'
+      | 'ACCEPTED'
+      | 'PICKING_UP'
+      | 'PICKED_UP'
       | 'IN_TRANSIT'
       | 'DELIVERED'
       | 'CANCELLED',
   ): Promise<Order> {
     const order = await this.findOne(orderId);
     order.status = status;
-    return this.orderRepository.save(order);
+    const updatedOrder = await this.orderRepository.save(order);
+
+    // Notificar al usuario por Telegram
+    if (order.user?.telegramId) {
+      let message = '';
+      switch (status) {
+        case 'ACCEPTED':
+          message = `👨‍🍳 Tu pedido #${order.id.slice(0, 8)} ha sido aceptado por un conductor.`;
+          break;
+        case 'PICKING_UP':
+          message = `🛵 El conductor está en camino al restaurante.`;
+          break;
+        case 'PICKED_UP':
+          message = `🥡 El conductor ha recogido tu pedido y va en camino.`;
+          break;
+        case 'IN_TRANSIT':
+          message = `🚀 Tu pedido está en camino a tu ubicación.`;
+          break;
+        case 'DELIVERED':
+          message = `✅ Tu pedido ha sido entregado. ¡Buen provecho!`;
+          break;
+        case 'CANCELLED':
+          message = `❌ Tu pedido ha sido cancelado.`;
+          break;
+      }
+
+      if (message) {
+        await this.telegramApi.sendMessage(Number(order.user.telegramId), message);
+      }
+    }
+
+    return updatedOrder;
   }
 
   /**
@@ -276,9 +324,8 @@ export class OrderService {
 
     order.status = 'CANCELLED';
     if (reason) {
-      order.notes = `${
-        order.notes || ''
-      }\nCancellation reason: ${reason}`.trim();
+      order.notes = `${order.notes || ''
+        }\nCancellation reason: ${reason}`.trim();
     }
 
     return this.orderRepository.save(order);
@@ -350,6 +397,9 @@ export class OrderService {
     inTransit: number;
     delivered: number;
     cancelled: number;
+    accepted: number;
+    pickingUp: number;
+    pickedUp: number;
   }> {
     const [
       total,
@@ -359,6 +409,9 @@ export class OrderService {
       inTransit,
       delivered,
       cancelled,
+      accepted,
+      pickingUp,
+      pickedUp,
     ] = await Promise.all([
       this.orderRepository.count(),
       this.orderRepository.count({ where: { status: 'PENDING' } }),
@@ -367,6 +420,9 @@ export class OrderService {
       this.orderRepository.count({ where: { status: 'IN_TRANSIT' } }),
       this.orderRepository.count({ where: { status: 'DELIVERED' } }),
       this.orderRepository.count({ where: { status: 'CANCELLED' } }),
+      this.orderRepository.count({ where: { status: 'ACCEPTED' } }),
+      this.orderRepository.count({ where: { status: 'PICKING_UP' } }),
+      this.orderRepository.count({ where: { status: 'PICKED_UP' } }),
     ]);
 
     return {
@@ -377,6 +433,130 @@ export class OrderService {
       inTransit,
       delivered,
       cancelled,
+      accepted,
+      pickingUp,
+      pickedUp,
     };
+  }
+
+  /**
+   * Calcular ganancia del conductor
+   */
+  calculateDriverEarnings(distanceKm: number): number {
+    const basePrice = this.configService.get<number>('DELIVERY_BASE_PRICE', 15);
+    const pricePerKm = this.configService.get<number>(
+      'DELIVERY_PRICE_PER_KM',
+      3,
+    );
+    return basePrice + distanceKm * pricePerKm;
+  }
+
+  /**
+   * Asignar orden al conductor más cercano
+   */
+  async assignToNearestDriver(orderId: string): Promise<Order> {
+    const order = await this.findOne(orderId);
+    const restaurantLat = this.configService.get<number>('RESTAURANT_LATITUDE');
+    const restaurantLon = this.configService.get<number>('RESTAURANT_LONGITUDE');
+
+    // Buscar conductor más cercano excluyendo los rechazados
+    const driver = await this.driverService.findNearestAvailableDriver(
+      restaurantLat || 0,
+      restaurantLon || 0,
+      order.rejectedDriverIds || [],
+    );
+
+    if (!driver) {
+      // No hay conductores disponibles
+      // Podríamos notificar al admin o dejar en estado CONFIRMED
+      console.log('No drivers available for order', orderId);
+      return order;
+    }
+
+    // Calcular distancia y ganancia
+    // Asumimos que la distancia es desde el restaurante hasta el cliente
+    // Si no hay ubicación del cliente, usamos 0 o un valor por defecto
+    let distance = 0;
+    if (order.latitude && order.longitude) {
+      distance = calculateDistance(
+        restaurantLat || 0,
+        restaurantLon || 0,
+        order.latitude,
+        order.longitude,
+      );
+    }
+
+    const earnings = this.calculateDriverEarnings(distance);
+
+    // Actualizar orden
+    order.driver = driver;
+    order.status = 'ASSIGNED';
+    order.driverEarnings = earnings;
+
+    await this.orderRepository.save(order);
+
+    // Enviar notificación al conductor
+    if (driver.appToken) {
+      await this.notificationService.sendPushNotification(
+        driver.appToken,
+        'Nuevo Pedido 🍔',
+        `Ganancia estimada: Bs. ${earnings.toFixed(2)}. Distancia: ${distance.toFixed(1)} km`,
+        {
+          type: 'NEW_ORDER',
+          orderId: order.id,
+        },
+      );
+    }
+
+    return order;
+  }
+  /**
+   * Rechazar pedido (Driver)
+   */
+  async rejectOrder(orderId: string, driverId: string): Promise<Order> {
+    const order = await this.findOne(orderId);
+
+    // Agregar a rechazados
+    if (!order.rejectedDriverIds) {
+      order.rejectedDriverIds = [];
+    }
+    // Asegurarse de no duplicar
+    if (!order.rejectedDriverIds.includes(driverId)) {
+      order.rejectedDriverIds.push(driverId);
+    }
+
+    // Quitar driver actual
+    order.driver = null;
+    order.status = 'CONFIRMED'; // Volver a estado anterior para re-asignar
+
+    await this.orderRepository.save(order);
+
+    // Buscar siguiente driver inmediatamente
+    return this.assignToNearestDriver(orderId);
+  }
+
+  /**
+   * Cron Job: Verificar pedidos asignados que expiraron (20 segundos)
+   * Se ejecuta cada 10 segundos
+   */
+  @Cron('*/10 * * * * *')
+  async handleOrderTimeout() {
+    // Buscar órdenes en estado ASSIGNED que llevan más de 20 segundos
+    const timeoutThreshold = new Date(Date.now() - 20 * 1000);
+
+    const staleOrders = await this.orderRepository.find({
+      where: {
+        status: 'ASSIGNED',
+        updatedAt: LessThan(timeoutThreshold),
+      },
+      relations: ['driver'],
+    });
+
+    for (const order of staleOrders) {
+      if (order.driver) {
+        console.log(`Order ${order.id} timed out for driver ${order.driver.id}`);
+        await this.rejectOrder(order.id, order.driver.id);
+      }
+    }
   }
 }

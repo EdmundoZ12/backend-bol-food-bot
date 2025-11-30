@@ -19,12 +19,18 @@ export class Order {
   @Column({ type: 'float' })
   totalAmount: number;
 
+  @Column({ type: 'float', nullable: true })
+  driverEarnings: number | null;
+
   @Column({
     type: 'enum',
     enum: [
       'PENDING',
       'CONFIRMED',
       'ASSIGNED',
+      'ACCEPTED',
+      'PICKING_UP',
+      'PICKED_UP',
       'IN_TRANSIT',
       'DELIVERED',
       'CANCELLED',
@@ -57,6 +63,9 @@ export class Order {
 
   @Column({ type: 'text', nullable: true })
   notes: string | null;
+
+  @Column({ type: 'simple-array', nullable: true })
+  rejectedDriverIds: string[];
 
   @ManyToOne(() => Driver, (driver) => driver.orders, {
     nullable: true,

@@ -9,8 +9,12 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { databaseConfig } from './config/database.config';
 import { CloudinaryModule } from './cloudinary/cloudinary.module';
 import { TelegramBotModule } from './telegram-bot/telegram-bot.module';
+import { NotificationModule } from './notification/notification.module';
+import { ScheduleModule } from '@nestjs/schedule';
+
 @Module({
   imports: [
+    ScheduleModule.forRoot(),
     ConfigModule.forRoot({
       isGlobal: true,
     }),
@@ -25,8 +29,9 @@ import { TelegramBotModule } from './telegram-bot/telegram-bot.module';
     DriverModule,
     CloudinaryModule,
     TelegramBotModule,
+    NotificationModule,
   ],
   controllers: [],
   providers: [],
 })
-export class AppModule {}
+export class AppModule { }

@@ -13,7 +13,7 @@ import { UpdateOrderDto } from './dto/update-order.dto';
 
 @Controller('orders')
 export class OrderController {
-  constructor(private readonly orderService: OrderService) {}
+  constructor(private readonly orderService: OrderService) { }
 
   // Crear orden desde carrito
   @Post()
@@ -129,5 +129,45 @@ export class OrderController {
   @Patch(':id')
   update(@Param('id') id: string, @Body() updateOrderDto: UpdateOrderDto) {
     return this.orderService.update(id, updateOrderDto);
+  }
+
+  // Aceptar pedido (Driver)
+  @Post(':id/accept')
+  async acceptOrder(@Param('id') id: string, @Body('driverId') driverId: string) {
+    // Validar que el driver asignado sea el mismo que acepta
+    const order = await this.orderService.findOne(id);
+    if (order.driver?.id !== driverId) {
+      // Opcional: permitir si el estado es PENDING/CONFIRMED y no tiene driver
+      throw new Error('This order is not assigned to you');
+    }
+    return this.orderService.updateStatus(id, 'ACCEPTED');
+  }
+
+  // Rechazar pedido (Driver)
+  @Post(':id/reject')
+  async rejectOrder(@Param('id') id: string, @Body('driverId') driverId: string) {
+    const order = await this.orderService.findOne(id);
+
+    if (order.driver?.id !== driverId) {
+      throw new Error('This order is not assigned to you');
+    }
+
+    // Agregar a rechazados
+    if (!order.rejectedDriverIds) {
+      order.rejectedDriverIds = [];
+    }
+    order.rejectedDriverIds.push(driverId);
+
+    // Quitar driver actual
+    order.driver = null;
+    order.status = 'CONFIRMED'; // Volver a estado anterior
+
+    // Guardar cambios (esto debería estar en un método del servicio, pero por rapidez lo hago aquí o llamo a update)
+    // Mejor: crear método rejectOrder en Service. 
+    // Por ahora, llamaré a assignToNearestDriver que se encargará de buscar otro.
+    // Pero primero debo guardar el rechazo.
+
+    // Refactor: Move logic to service for cleaner controller
+    return this.orderService.rejectOrder(id, driverId);
   }
 }
