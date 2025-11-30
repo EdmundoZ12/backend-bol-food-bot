@@ -140,4 +140,63 @@ export class TelegramApiUtil {
       throw error;
     }
   }
+
+  /**
+   * Configurar webhook de Telegram
+   */
+  async setWebhook(webhookUrl: string): Promise<boolean> {
+    try {
+      const response = await axios.post(`${this.apiUrl}/setWebhook`, {
+        url: webhookUrl,
+        allowed_updates: ['message', 'callback_query'],
+        drop_pending_updates: true,
+      });
+
+      if (response.data.ok) {
+        this.logger.log(`Webhook set to: ${webhookUrl}`);
+        return true;
+      } else {
+        this.logger.error(`Failed to set webhook: ${response.data.description}`);
+        return false;
+      }
+    } catch (error) {
+      this.logger.error('Error setting webhook:', error.message);
+      return false;
+    }
+  }
+
+  /**
+   * Eliminar webhook de Telegram
+   */
+  async deleteWebhook(): Promise<boolean> {
+    try {
+      const response = await axios.post(`${this.apiUrl}/deleteWebhook`, {
+        drop_pending_updates: true,
+      });
+
+      if (response.data.ok) {
+        this.logger.log('Webhook deleted');
+        return true;
+      } else {
+        this.logger.error(`Failed to delete webhook: ${response.data.description}`);
+        return false;
+      }
+    } catch (error) {
+      this.logger.error('Error deleting webhook:', error.message);
+      return false;
+    }
+  }
+
+  /**
+   * Obtener información del webhook actual
+   */
+  async getWebhookInfo(): Promise<any> {
+    try {
+      const response = await axios.get(`${this.apiUrl}/getWebhookInfo`);
+      return response.data.result;
+    } catch (error) {
+      this.logger.error('Error getting webhook info:', error.message);
+      return null;
+    }
+  }
 }
