@@ -1,13 +1,29 @@
-import { Column, Entity, OneToMany, PrimaryGeneratedColumn } from 'typeorm';
+import {
+  Column,
+  CreateDateColumn,
+  Entity,
+  OneToMany,
+  PrimaryGeneratedColumn,
+  UpdateDateColumn,
+} from 'typeorm';
 import { Order } from '../../order/entities/order.entity';
+
+export enum DriverStatus {
+  AVAILABLE = 'AVAILABLE',
+  BUSY = 'BUSY',
+  OFFLINE = 'OFFLINE',
+}
 
 @Entity('driver')
 export class Driver {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
+  @Column({ type: 'varchar', length: 100, unique: true })
+  email: string;
+
   @Column('text')
-  appToken: string;
+  password: string;
 
   @Column('text')
   name: string;
@@ -21,9 +37,25 @@ export class Driver {
   @Column('text')
   vehicle: string;
 
-  @Column({ type: 'enum', enum: ['AVAILABLE', 'BUSY', 'OFFLINE'] })
-  status: string;
+  @Column({
+    type: 'enum',
+    enum: DriverStatus,
+    default: DriverStatus.OFFLINE,
+  })
+  status: DriverStatus;
 
-  @OneToMany(() => Order, (order) => order.driver, { onDelete: 'CASCADE' })
+  @Column({ type: 'text', nullable: true })
+  appToken: string | null;
+
+  @Column({ type: 'boolean', default: true })
+  isActive: boolean;
+
+  @OneToMany(() => Order, (order) => order.driver)
   orders: Order[];
+
+  @CreateDateColumn()
+  createdAt: Date;
+
+  @UpdateDateColumn()
+  updatedAt: Date;
 }
