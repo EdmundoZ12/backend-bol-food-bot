@@ -415,7 +415,8 @@ export class OrderAssignmentService {
       [OrderStatus.ACCEPTED]: [OrderStatus.PICKING_UP],
       [OrderStatus.PICKING_UP]: [OrderStatus.PICKED_UP],
       [OrderStatus.PICKED_UP]: [OrderStatus.IN_TRANSIT],
-      [OrderStatus.IN_TRANSIT]: [OrderStatus.DELIVERED],
+      [OrderStatus.IN_TRANSIT]: [OrderStatus.AT_PLACE],
+      [OrderStatus.AT_PLACE]: [OrderStatus.DELIVERED],
       // Estados sin transiciones permitidas desde el driver
       [OrderStatus.PENDING]: [],
       [OrderStatus.CONFIRMED]: [],
