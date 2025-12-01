@@ -8,6 +8,7 @@ import { ProductModule } from '../product/product.module';
 import { DriverModule } from '../driver/driver.module';
 import { UserModule } from '../user/user.module';
 import { CartModule } from '../cart/cart.module';
+import { TelegramBotModule } from '../telegram-bot/telegram-bot.module';
 
 @Module({
   controllers: [OrderController],
@@ -17,8 +18,9 @@ import { CartModule } from '../cart/cart.module';
     DriverModule,
     UserModule,
     CartModule,
+    TelegramBotModule,
   ],
   providers: [OrderService],
   exports: [TypeOrmModule, OrderService],
 })
-export class OrderModule {}
+export class OrderModule { }

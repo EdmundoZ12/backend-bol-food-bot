@@ -19,6 +19,8 @@ import { UpdateOrderDto } from './dto/update-order.dto';
 import { Inject, forwardRef } from '@nestjs/common';
 import { DriverService } from '../driver/driver.service';
 import { DriverStatus } from '../driver/entities/driver.entity';
+import { OrderAssignmentService } from '../common/services/order-assignment.service';
+import { TelegramApiUtil } from '../telegram-bot/utils/telegram-api.util';
 
 @Injectable()
 export class OrderService {
@@ -31,6 +33,8 @@ export class OrderService {
     private readonly orderItemRepository: Repository<OrderItem>,
     private readonly cartService: CartService,
     private readonly userService: UserService,
+    private readonly orderAssignmentService: OrderAssignmentService,
+    private readonly telegramApi: TelegramApiUtil,
   ) { }
 
   /**
@@ -137,7 +141,17 @@ export class OrderService {
       order.status = OrderStatus.CONFIRMED;
     }
 
-    return this.orderRepository.save(order);
+    const savedOrder = await this.orderRepository.save(order);
+
+    // Iniciar proceso de asignación automática de conductor
+    try {
+      await this.orderAssignmentService.assignOrder(savedOrder.id);
+    } catch (error) {
+      console.error('Error al asignar conductor:', error);
+      // No lanzamos el error para que el pago se confirme de todas formas
+    }
+
+    return savedOrder;
   }
 
   /**
@@ -256,6 +270,24 @@ export class OrderService {
       relations: ['orderItems', 'user'],
       order: { createdAt: 'DESC' },
     });
+  }
+
+  /**
+   * Obtener pedido activo de un conductor (ASSIGNED, PICKING_UP, IN_TRANSIT, AT_PLACE)
+   */
+  async findActiveByDriver(driverId: string): Promise<Order | null> {
+    const order = await this.orderRepository.findOne({
+      where: [
+        { driver: { id: driverId }, status: OrderStatus.ASSIGNED },
+        { driver: { id: driverId }, status: OrderStatus.PICKING_UP },
+        { driver: { id: driverId }, status: OrderStatus.IN_TRANSIT },
+        { driver: { id: driverId }, status: OrderStatus.AT_PLACE },
+      ],
+      relations: ['orderItems', 'orderItems.product', 'user', 'driver'],
+      order: { createdAt: 'DESC' },
+    });
+
+    return order || null;
   }
 
   /**
@@ -493,8 +525,20 @@ export class OrderService {
 
     await this.orderRepository.save(order);
 
-    // TODO: Enviar notificación al cliente vía Telegram
-    // Mensaje: "Tu pedido Orden #XXX se encuentra en camino."
+    // Enviar notificación al cliente vía Telegram
+    if (order.user?.telegramId) {
+      const orderShortId = order.id.substring(0, 8).toUpperCase();
+      const message = `🚗 *Tu pedido está en camino*\n\nOrden #${orderShortId}\n\nEl conductor ha recogido tu pedido y se dirige a tu domicilio.`;
+
+      try {
+        await this.telegramApi.sendMessage(
+          parseInt(order.user.telegramId),
+          message,
+        );
+      } catch (error) {
+        console.error('Error sending Telegram notification:', error);
+      }
+    }
 
     return order;
   }
@@ -524,8 +568,19 @@ export class OrderService {
 
     await this.orderRepository.save(order);
 
-    // TODO: Enviar notificación al cliente vía Telegram
-    // Mensaje: "El conductor está en la puerta de tu domicilio."
+    // Enviar notificación al cliente vía Telegram
+    if (order.user?.telegramId) {
+      const message = `🚪 *El conductor está en la puerta*\n\nTu pedido ha llegado. Por favor, sal a recogerlo.`;
+
+      try {
+        await this.telegramApi.sendMessage(
+          parseInt(order.user.telegramId),
+          message,
+        );
+      } catch (error) {
+        console.error('Error sending Telegram notification:', error);
+      }
+    }
 
     return order;
   }
@@ -564,8 +619,20 @@ export class OrderService {
     // Actualizar estado del conductor a AVAILABLE
     await this.driverService.updateStatus(driverId, DriverStatus.AVAILABLE);
 
-    // TODO: Enviar notificación al cliente vía Telegram
-    // Mensaje: "Tu pedido ha sido entregado. ¡Buen provecho!"
+    // Enviar notificación al cliente vía Telegram
+    if (order.user?.telegramId) {
+      const orderShortId = order.id.substring(0, 8).toUpperCase();
+      const message = `✅ *¡Pedido entregado!*\n\nOrden #${orderShortId}\n\n¡Buen provecho! Gracias por tu preferencia. 🍔`;
+
+      try {
+        await this.telegramApi.sendMessage(
+          parseInt(order.user.telegramId),
+          message,
+        );
+      } catch (error) {
+        console.error('Error sending Telegram notification:', error);
+      }
+    }
 
     return order;
   }

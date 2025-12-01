@@ -28,6 +28,6 @@ import { CheckoutHandler } from './handlers/checkout.handler';
     CartHandler,
     CheckoutHandler,
   ],
-  exports: [TelegramBotService],
+  exports: [TelegramBotService, TelegramApiUtil],
 })
-export class TelegramBotModule {}
+export class TelegramBotModule { }

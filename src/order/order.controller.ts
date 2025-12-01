@@ -67,6 +67,12 @@ export class OrderController {
     return this.orderService.findByDriver(driverId);
   }
 
+  // Obtener pedido activo de un conductor
+  @Get('driver/:driverId/active')
+  findActiveByDriver(@Param('driverId') driverId: string) {
+    return this.orderService.findActiveByDriver(driverId);
+  }
+
   // Obtener una orden
   @Get(':id')
   findOne(@Param('id') id: string) {
