@@ -10,6 +10,8 @@ import { databaseConfig } from './config/database.config';
 import { CloudinaryModule } from './cloudinary/cloudinary.module';
 import { TelegramBotModule } from './telegram-bot/telegram-bot.module';
 import { AuthModule } from './auth/auth.module';
+import { TrackingModule } from './tracking/tracking.module';
+
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -27,8 +29,9 @@ import { AuthModule } from './auth/auth.module';
     CloudinaryModule,
     TelegramBotModule,
     AuthModule,
+    TrackingModule,
   ],
   controllers: [],
   providers: [],
 })
-export class AppModule {}
+export class AppModule { }

@@ -25,6 +25,8 @@ export class Order {
       'PENDING',
       'CONFIRMED',
       'ASSIGNED',
+      'PICKING_UP',
+      'PICKED_UP',
       'IN_TRANSIT',
       'DELIVERED',
       'CANCELLED',
@@ -57,6 +59,21 @@ export class Order {
 
   @Column({ type: 'text', nullable: true })
   notes: string | null;
+
+  @Column({ type: 'decimal', precision: 10, scale: 2, nullable: true })
+  driverEarnings: number | null;
+
+  @Column({ type: 'decimal', precision: 10, scale: 2, nullable: true })
+  distanceKm: number | null;
+
+  @Column({ type: 'timestamp', nullable: true })
+  assignedAt: Date | null;
+
+  @Column({ type: 'timestamp', nullable: true })
+  pickedUpAt: Date | null;
+
+  @Column({ type: 'timestamp', nullable: true })
+  deliveredAt: Date | null;
 
   @ManyToOne(() => Driver, (driver) => driver.orders, {
     nullable: true,

@@ -13,7 +13,7 @@ import { UpdateOrderDto } from './dto/update-order.dto';
 
 @Controller('orders')
 export class OrderController {
-  constructor(private readonly orderService: OrderService) {}
+  constructor(private readonly orderService: OrderService) { }
 
   // Crear orden desde carrito
   @Post()
@@ -125,9 +125,38 @@ export class OrderController {
     return this.orderService.markAsDelivered(id);
   }
 
+  // Driver acepta pedido
+  @Post(':id/accept')
+  acceptOrder(@Param('id') id: string, @Body('driverId') driverId: string) {
+    return this.orderService.acceptOrder(id, driverId);
+  }
+
+  // Driver rechaza pedido
+  @Post(':id/reject')
+  rejectOrder(@Param('id') id: string, @Body('driverId') driverId: string) {
+    return this.orderService.rejectOrder(id, driverId);
+  }
+
+  // Driver actualiza estado del pedido
+  @Patch(':id/driver-status')
+  updateDriverStatus(
+    @Param('id') id: string,
+    @Body('status') status: 'PICKING_UP' | 'PICKED_UP' | 'IN_TRANSIT',
+  ) {
+    return this.orderService.updateDriverStatus(id, status);
+  }
+
   // Actualizar orden
   @Patch(':id')
   update(@Param('id') id: string, @Body() updateOrderDto: UpdateOrderDto) {
     return this.orderService.update(id, updateOrderDto);
+  }
+
+  // TEST: Asignar automáticamente al driver más cercano
+  @Post(':id/assign-nearest')
+  async assignNearestDriver(@Param('id') id: string) {
+    const order = await this.orderService.findOne(id);
+    await this.orderService.assignOrderToNearestDriver(order);
+    return { message: 'Asignación automática iniciada' };
   }
 }

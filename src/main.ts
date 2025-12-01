@@ -26,9 +26,10 @@ async function bootstrap() {
     }),
   );
   const port = process.env.PORT || 3500;
-  await app.listen(port);
+  await app.listen(port, '0.0.0.0');
 
-  logger.log(`Application is running on: http://localhost:${port}`);
+  logger.log(`Application is running on: http://0.0.0.0:${port}`);
+  logger.log(`Access from network: http://192.168.0.3:${port}`);
   logger.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
   logger.log(
     `Database: ${process.env.DB_NAME}@${process.env.DB_HOST}:${process.env.DB_PORT}`,

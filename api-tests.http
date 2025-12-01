@@ -1,0 +1,410 @@
+### ============================================
+### BOL FOOD - API Testing
+### Backend Tracking System
+### ============================================
+
+@baseUrl = http://localhost:3500/api
+@driverId = da8e9024-efdc-4568-b1c5-b695151cef8c
+@token = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJkYThlOTAyNC1lZmRjLTQ1NjgtYjFjNS1iNjk1MTUxY2VmOGMiLCJlbWFpbCI6Imp1YW4ucGVyZXpAdGVzdC5jb20iLCJuYW1lIjoiSnVhbiIsImlhdCI6MTc2NDUzNTY5MywiZXhwIjoxNzY1MTQwNDkzfQ.C3AkXhm3yooij-ud_QL86ihn83VVnsA5Im8S3kTkyoA
+@orderId = a4fee9d8-9c3d-4998-94d6-55dba1f03e96
+
+### ============================================
+### 1. REGISTRO Y AUTENTICACIÓN
+### ============================================
+
+### 1.1 Registrar Driver
+# @name register_driver
+POST {{baseUrl}}/drivers/register
+Content-Type: application/json
+
+{
+  "name": "Juan",
+  "lastname": "Pérez",
+  "email": "juan.perez@test.com",
+  "password": "password123",
+  "phone": "70123456",
+  "vehicle": "Moto Honda 150cc"
+}
+
+### 1.2 Login Driver
+# @name login_driver
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "juan.perez@test.com",
+  "password": "password123",
+  "appToken": "fake-fcm-token-for-testing-12345"
+}
+
+### 1.3 Obtener Perfil del Driver
+GET {{baseUrl}}/auth/profile
+Authorization: Bearer {{token}}
+
+### 1.4 Logout Driver
+POST {{baseUrl}}/auth/logout
+Authorization: Bearer {{token}}
+
+### ============================================
+### 2. GESTIÓN DE ESTADO DEL DRIVER
+### ============================================
+
+### 2.1 Cambiar a AVAILABLE
+PATCH {{baseUrl}}/drivers/{{driverId}}/available
+Authorization: Bearer {{token}}
+
+### 2.2 Cambiar a BUSY
+PATCH {{baseUrl}}/drivers/{{driverId}}/busy
+Authorization: Bearer {{token}}
+
+### 2.3 Cambiar a OFFLINE
+PATCH {{baseUrl}}/drivers/{{driverId}}/offline
+Authorization: Bearer {{token}}
+
+### 2.4 Cambiar Estado Personalizado
+PATCH {{baseUrl}}/drivers/{{driverId}}/status
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "status": "AVAILABLE"
+}
+
+### ============================================
+### 3. ESTADÍSTICAS DEL DRIVER
+### ============================================
+
+### 3.1 Obtener Estadísticas
+GET {{baseUrl}}/drivers/{{driverId}}/stats
+Authorization: Bearer {{token}}
+
+### 3.2 Obtener Todos los Drivers
+GET {{baseUrl}}/drivers
+Authorization: Bearer {{token}}
+
+### 3.3 Obtener Driver por ID
+GET {{baseUrl}}/drivers/{{driverId}}
+Authorization: Bearer {{token}}
+
+### ============================================
+### 4. GESTIÓN DE PEDIDOS
+### ============================================
+
+### 4.1 Obtener Todas las Órdenes
+GET {{baseUrl}}/orders
+Authorization: Bearer {{token}}
+
+### 4.2 Obtener Órdenes Pendientes de Asignación
+GET {{baseUrl}}/orders/pending-assignment
+Authorization: Bearer {{token}}
+
+### 4.3 Obtener Órdenes por Estado
+GET {{baseUrl}}/orders/status/PENDING
+Authorization: Bearer {{token}}
+
+### 4.4 Obtener Órdenes del Driver
+GET {{baseUrl}}/orders/driver/{{driverId}}
+Authorization: Bearer {{token}}
+
+### 4.5 Obtener Orden Específica
+GET {{baseUrl}}/orders/{{orderId}}
+Authorization: Bearer {{token}}
+
+### 4.6 Obtener Resumen de Orden
+GET {{baseUrl}}/orders/{{orderId}}/summary
+Authorization: Bearer {{token}}
+
+### ============================================
+### 5. ACEPTAR/RECHAZAR PEDIDOS
+### ============================================
+
+### 5.1 Aceptar Pedido
+POST {{baseUrl}}/orders/{{orderId}}/accept
+Content-Type: application/json
+
+{
+  "driverId": "{{driverId}}"
+}
+
+### 5.2 Rechazar Pedido
+POST {{baseUrl}}/orders/{{orderId}}/reject
+Content-Type: application/json
+
+{
+  "driverId": "{{driverId}}"
+}
+
+### ============================================
+### 6. ACTUALIZAR ESTADO DEL PEDIDO
+### ============================================
+
+### 6.1 Driver va al Restaurante
+PATCH {{baseUrl}}/orders/{{orderId}}/driver-status
+Content-Type: application/json
+
+{
+  "status": "PICKING_UP"
+}
+
+### 6.2 Driver Recogió el Pedido
+PATCH {{baseUrl}}/orders/{{orderId}}/driver-status
+Content-Type: application/json
+
+{
+  "status": "PICKED_UP"
+}
+
+### 6.3 Driver va al Cliente
+PATCH {{baseUrl}}/orders/{{orderId}}/driver-status
+Content-Type: application/json
+
+{
+  "status": "IN_TRANSIT"
+}
+
+### 6.4 Marcar como Entregado
+PATCH {{baseUrl}}/orders/{{orderId}}/delivered
+
+### 6.5 Cancelar Orden
+PATCH {{baseUrl}}/orders/{{orderId}}/cancel
+Content-Type: application/json
+
+{
+  "reason": "Cliente no disponible"
+}
+
+### ============================================
+### 7. GESTIÓN DE UBICACIÓN Y NOTAS
+### ============================================
+
+### 7.1 Establecer Ubicación del Pedido
+PATCH {{baseUrl}}/orders/{{orderId}}/location
+Content-Type: application/json
+
+{
+  "latitude": -17.790000,
+  "longitude": -63.190000,
+  "address": "Av. Banzer #123, Santa Cruz"
+}
+
+### 7.2 Agregar Notas al Pedido
+PATCH {{baseUrl}}/orders/{{orderId}}/notes
+Content-Type: application/json
+
+{
+  "notes": "Tocar el timbre 2 veces"
+}
+
+### ============================================
+### 8. MÉTODO DE PAGO
+### ============================================
+
+### 8.1 Establecer Método de Pago - EFECTIVO
+PATCH {{baseUrl}}/orders/{{orderId}}/payment-method
+Content-Type: application/json
+
+{
+  "method": "CASH"
+}
+
+### 8.2 Establecer Método de Pago - QR
+PATCH {{baseUrl}}/orders/{{orderId}}/payment-method
+Content-Type: application/json
+
+{
+  "method": "QR"
+}
+
+### 8.3 Confirmar Pago
+PATCH {{baseUrl}}/orders/{{orderId}}/confirm-payment
+
+### ============================================
+### 9. ESTADÍSTICAS GENERALES
+### ============================================
+
+### 9.1 Obtener Estadísticas de Órdenes
+GET {{baseUrl}}/orders/stats
+
+### ============================================
+### 10. FLUJO COMPLETO DE PRUEBA
+### ============================================
+
+### PASO 1: Registrar Driver
+# @name test_register
+POST {{baseUrl}}/drivers/register
+Content-Type: application/json
+
+{
+  "name": "María",
+  "lastname": "López",
+  "email": "maria.lopez@test.com",
+  "password": "test123",
+  "phone": "75987654",
+  "vehicle": "Moto Yamaha 125cc"
+}
+
+### PASO 2: Login
+# @name test_login
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "maria.lopez@test.com",
+  "password": "test123",
+  "appToken": "test-fcm-token-maria"
+}
+
+### PASO 3: Cambiar a AVAILABLE
+PATCH {{baseUrl}}/drivers/{{test_register.response.body.id}}/available
+Authorization: Bearer {{test_login.response.body.access_token}}
+
+### PASO 4: Ver Estadísticas (debe mostrar 0 entregas)
+GET {{baseUrl}}/drivers/{{test_register.response.body.id}}/stats
+Authorization: Bearer {{test_login.response.body.access_token}}
+
+### ============================================
+### 11. PROBAR TRACKING COMPLETO
+### ============================================
+
+### ESCENARIO: Simular un pedido completo con tracking
+
+### 11.1 Crear ubicación del driver en la BD
+# Ejecuta esto en tu base de datos PostgreSQL:
+# INSERT INTO driver_location (id, "driverId", latitude, longitude, timestamp)
+# VALUES (gen_random_uuid(), '{{driverId}}', -17.784000, -63.182500, NOW());
+
+### 11.2 Obtener pedidos pendientes
+GET {{baseUrl}}/orders/pending-assignment
+
+### 11.3 Aceptar un pedido (reemplaza {{orderId}})
+POST {{baseUrl}}/orders/{{"81730517-17b2-4d70-a883-c21f3466072e}}/accept
+Content-Type: application/json
+
+{
+  "driverId": "{4fd3f996-b2ec-477c-8f18-31a44248351f}"
+}
+
+### 11.4 Driver va al restaurante
+PATCH {{baseUrl}}/orders/{{orderId}}/driver-status
+Content-Type: application/json
+
+{
+  "status": "PICKING_UP"
+}
+
+### 11.5 Driver recogió el pedido
+PATCH {{baseUrl}}/orders/{{orderId}}/driver-status
+Content-Type: application/json
+
+{
+  "status": "PICKED_UP"
+}
+
+### 11.6 Driver va al cliente
+PATCH {{baseUrl}}/orders/{{orderId}}/driver-status
+Content-Type: application/json
+
+{
+  "status": "IN_TRANSIT"
+}
+
+### 11.7 Marcar como entregado
+PATCH {{baseUrl}}/orders/{{orderId}}/delivered
+
+### 11.8 Verificar estadísticas actualizadas
+GET {{baseUrl}}/drivers/{{driverId}}/stats
+Authorization: Bearer {{token}}
+
+### ============================================
+### NOTAS DE USO
+### ============================================
+
+# 1. Instala la extensión "REST Client" en VS Code
+# 2. Las variables @driverId y @token se llenan automáticamente
+# 3. Reemplaza @orderId con un ID real de pedido
+# 4. Ejecuta las requests haciendo clic en "Send Request"
+# 5. Los resultados aparecerán en una nueva pestaña
+
+### ============================================
+### VARIABLES MANUALES (si las automáticas fallan)
+### ============================================
+
+# Descomenta y reemplaza con valores reales:
+# @driverId = abc123-def456-ghi789
+# @token = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+# @orderId = order-uuid-here
+
+### Obtener pedidos pendientes
+GET {{baseUrl}}/orders/pending-assignment
+
+### 11.3 Aceptar un pedido
+POST {{baseUrl}}/orders/{{orderId}}/accept
+Content-Type: application/json
+
+{
+  "driverId": "{{driverId}}"
+}
+
+### 11.4 Driver va al restaurante
+PATCH {{baseUrl}}/orders/{{orderId}}/driver-status
+Content-Type: application/json
+
+{
+  "status": "PICKING_UP"
+}
+
+### 11.5 Driver recogió el pedido
+PATCH {{baseUrl}}/orders/{{orderId}}/driver-status
+Content-Type: application/json
+
+{
+  "status": "PICKED_UP"
+}
+
+### 11.6 Driver va al cliente
+PATCH {{baseUrl}}/orders/{{orderId}}/driver-status
+Content-Type: application/json
+
+{
+  "status": "IN_TRANSIT"
+}
+
+### 11.7 Marcar como entregado
+PATCH {{baseUrl}}/orders/{{orderId}}/delivered
+
+### 11.8 Verificar estadísticas actualizadas
+GET {{baseUrl}}/drivers/{{driverId}}/stats
+Authorization: Bearer {{token}}
+
+### Registrar segundo driver
+POST {{baseUrl}}/drivers/register
+Content-Type: application/json
+
+{
+  "name": "María",
+  "lastname": "López",
+  "email": "maria.lopez2@test.com",
+  "password": "password123",
+  "phone": "75987654",
+  "vehicle": "Moto Yamaha 125cc"
+}
+
+### PASO 2: Login María
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "maria.lopez2@test.com",
+  "password": "password123",
+  "appToken": "fake-fcm-token-maria"
+}
+
+### PASO 3: Cambiar María a AVAILABLE
+PATCH {{baseUrl}}/drivers/c6ce854e-66a5-4333-a5bd-39f1afd38282/available
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJjNmNlODU0ZS02NmE1LTQzMzMtYTViZC0zOWYxYWZkMzgyODIiLCJlbWFpbCI6Im1hcmlhLmxvcGV6MkB0ZXN0LmNvbSIsIm5hbWUiOiJNYXLDrWEiLCJpYXQiOjE3NjQ1Mzc5MzEsImV4cCI6MTc2NTE0MjczMX0.Y9cqFYiPDrHE0UCHVpleiWnB4Hsfq_FRcraFd8zfNGU
+
+### PASO 6: Asignar automáticamente al driver más cercano
+POST {{baseUrl}}/orders/{{orderId}}/assign-nearest
+
+### Ver pedidos del driver María
+GET http://192.168.0.3:3500/api/orders/driver/c6ce854e-66a5-4333-a5bd-39f1afd38282

@@ -5,15 +5,23 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { ConfigService } from '@nestjs/config';
 import { Order } from './entities/order.entity';
 import { OrderItem } from './entities/order-item.entity';
+import { Driver, DriverStatus } from '../driver/entities/driver.entity';
 import { CartService } from '../cart/cart.service';
 import { UserService } from '../user/user.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderDto } from './dto/update-order.dto';
+import { DistanceService } from './services/distance.service';
+import { EarningsService } from './services/earnings.service';
+import { DriverAssignmentService } from '../driver/services/driver-assignment.service';
+import { FirebaseService } from '../config/firebase.service';
 
 @Injectable()
 export class OrderService {
+  private rejectedDriversMap = new Map<string, string[]>();
+
   constructor(
     @InjectRepository(Order)
     private readonly orderRepository: Repository<Order>,
@@ -21,7 +29,11 @@ export class OrderService {
     private readonly orderItemRepository: Repository<OrderItem>,
     private readonly cartService: CartService,
     private readonly userService: UserService,
-  ) {}
+    private readonly distanceService: DistanceService,
+    private readonly earningsService: EarningsService,
+    private readonly driverAssignmentService: DriverAssignmentService,
+    private readonly firebaseService: FirebaseService,
+  ) { }
 
   /**
    * Crear orden desde el carrito
@@ -276,9 +288,8 @@ export class OrderService {
 
     order.status = 'CANCELLED';
     if (reason) {
-      order.notes = `${
-        order.notes || ''
-      }\nCancellation reason: ${reason}`.trim();
+      order.notes = `${order.notes || ''
+        }\nCancellation reason: ${reason}`.trim();
     }
 
     return this.orderRepository.save(order);
@@ -378,5 +389,184 @@ export class OrderService {
       delivered,
       cancelled,
     };
+  }
+
+  /**
+   * Driver acepta pedido
+   */
+  async acceptOrder(orderId: string, driverId: string): Promise<Order> {
+    const order = await this.orderRepository.findOne({
+      where: { id: orderId },
+      relations: ['driver'],
+    });
+
+    if (!order) {
+      throw new NotFoundException('Pedido no encontrado');
+    }
+
+    if (order.status !== 'PENDING' && order.status !== 'CONFIRMED') {
+      throw new BadRequestException('El pedido ya fue asignado');
+    }
+
+    // Asignar driver
+    order.driver = { id: driverId } as Driver;
+    order.status = 'ASSIGNED';
+    order.assignedAt = new Date();
+
+    await this.orderRepository.save(order);
+
+    // Cambiar estado del driver a BUSY
+    await this.orderRepository.manager.update(
+      Driver,
+      { id: driverId },
+      { status: DriverStatus.BUSY },
+    );
+
+    console.log(`✅ Pedido ${orderId} aceptado por driver ${driverId}`);
+
+    // Limpiar drivers rechazados de este pedido
+    this.rejectedDriversMap.delete(orderId);
+
+    return this.findOne(orderId);
+  }
+
+  /**
+   * Driver rechaza pedido
+   */
+  async rejectOrder(orderId: string, driverId: string): Promise<any> {
+    const order = await this.orderRepository.findOne({
+      where: { id: orderId },
+    });
+
+    if (!order) {
+      throw new NotFoundException('Pedido no encontrado');
+    }
+
+    console.log(`❌ Driver ${driverId} rechazó pedido ${orderId}`);
+
+    // Agregar driver a la lista de rechazados
+    const rejectedDrivers = this.rejectedDriversMap.get(orderId) || [];
+    rejectedDrivers.push(driverId);
+    this.rejectedDriversMap.set(orderId, rejectedDrivers);
+
+    // Buscar siguiente driver más cercano
+    await this.assignOrderToNearestDriver(order, rejectedDrivers);
+
+    return { message: 'Pedido rechazado, buscando otro driver' };
+  }
+
+  /**
+   * Driver actualiza estado del pedido
+   */
+  async updateDriverStatus(
+    orderId: string,
+    status: 'PICKING_UP' | 'PICKED_UP' | 'IN_TRANSIT',
+  ): Promise<Order> {
+    const order = await this.findOne(orderId);
+
+    order.status = status;
+
+    if (status === 'PICKED_UP') {
+      order.pickedUpAt = new Date();
+    }
+
+    return this.orderRepository.save(order);
+  }
+
+  /**
+   * Asignar pedido al driver más cercano con notificación push
+   */
+  async assignOrderToNearestDriver(
+    order: Order,
+    excludeDriverIds: string[] = [],
+  ): Promise<void> {
+    // Calcular distancia y ganancia si no están calculadas
+    if (!order.distanceKm || !order.driverEarnings) {
+      const restaurantLat = parseFloat(
+        process.env.RESTAURANT_LATITUDE || '-17.783777',
+      );
+      const restaurantLon = parseFloat(
+        process.env.RESTAURANT_LONGITUDE || '-63.181997',
+      );
+
+      if (order.latitude && order.longitude) {
+        const result = await this.distanceService.calculateDistance(
+          restaurantLat,
+          restaurantLon,
+          order.latitude,
+          order.longitude,
+        );
+
+        order.distanceKm = result.distanceKm;
+        order.driverEarnings =
+          this.earningsService.calculateDriverEarnings(result.distanceKm);
+
+        console.log(
+          `📍 Distancia calculada: ${result.distanceKm} km, Tiempo: ${result.durationMinutes} min, Ganancia: Bs. ${order.driverEarnings}`,
+        );
+
+        await this.orderRepository.save(order);
+      }
+    }
+
+    const nearestDriver =
+      await this.driverAssignmentService.findNearestAvailableDriver(
+        excludeDriverIds,
+      );
+
+    if (!nearestDriver) {
+      console.log('⚠️ No hay drivers disponibles');
+      return;
+    }
+
+    if (!nearestDriver.appToken) {
+      console.log('⚠️ Driver no tiene token FCM');
+      return;
+    }
+
+    // Enviar notificación push
+    try {
+      await this.firebaseService.sendNotificationToDriver(
+        nearestDriver.appToken,
+        '🛵 Nuevo Pedido Disponible',
+        `Ganancia: Bs. ${order.driverEarnings} - Distancia: ${order.distanceKm} km`,
+        {
+          orderId: order.id,
+          earnings: order.driverEarnings?.toString() || '0',
+          distance: order.distanceKm?.toString() || '0',
+          type: 'NEW_ORDER',
+        },
+      );
+
+      console.log(`📲 Notificación enviada a driver ${nearestDriver.id}`);
+    } catch (error) {
+      console.error('Error enviando notificación:', error);
+    }
+
+    // Iniciar timeout de 120 segundos (2 minutos)
+    const timeoutSeconds = parseInt(
+      process.env.ORDER_ACCEPTANCE_TIMEOUT || '120',
+    );
+
+    setTimeout(async () => {
+      const updatedOrder = await this.orderRepository.findOne({
+        where: { id: order.id },
+      });
+
+      if (
+        updatedOrder &&
+        (updatedOrder.status === 'PENDING' ||
+          updatedOrder.status === 'CONFIRMED')
+      ) {
+        console.log(
+          `⏰ Timeout: Driver ${nearestDriver.id} no respondió en ${timeoutSeconds}s`,
+        );
+        // Buscar siguiente driver
+        await this.assignOrderToNearestDriver(updatedOrder, [
+          ...excludeDriverIds,
+          nearestDriver.id,
+        ]);
+      }
+    }, timeoutSeconds * 1000);
   }
 }

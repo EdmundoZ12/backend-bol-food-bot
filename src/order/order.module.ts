@@ -8,6 +8,9 @@ import { ProductModule } from '../product/product.module';
 import { DriverModule } from '../driver/driver.module';
 import { UserModule } from '../user/user.module';
 import { CartModule } from '../cart/cart.module';
+import { DistanceService } from './services/distance.service';
+import { EarningsService } from './services/earnings.service';
+import { FirebaseService } from '../config/firebase.service';
 
 @Module({
   controllers: [OrderController],
@@ -18,7 +21,7 @@ import { CartModule } from '../cart/cart.module';
     UserModule,
     CartModule,
   ],
-  providers: [OrderService],
+  providers: [OrderService, DistanceService, EarningsService, FirebaseService],
   exports: [TypeOrmModule, OrderService],
 })
-export class OrderModule {}
+export class OrderModule { }

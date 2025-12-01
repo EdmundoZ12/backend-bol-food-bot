@@ -17,7 +17,7 @@ import { DriverStatus } from './entities/driver.entity';
 
 @Controller('drivers')
 export class DriverController {
-  constructor(private readonly driverService: DriverService) {}
+  constructor(private readonly driverService: DriverService) { }
 
   // Registro de nuevo driver (público)
   @Post('register')
@@ -78,6 +78,13 @@ export class DriverController {
   @Patch(':id/offline')
   setOffline(@Param('id', ParseUUIDPipe) id: string) {
     return this.driverService.updateStatus(id, DriverStatus.OFFLINE);
+  }
+
+  // Obtener estadísticas del driver (protegido)
+  @UseGuards(AuthGuard)
+  @Get(':id/stats')
+  getStats(@Param('id', ParseUUIDPipe) id: string) {
+    return this.driverService.getDriverStats(id);
   }
 
   // Eliminar driver (protegido)

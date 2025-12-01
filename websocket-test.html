@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebSocket Tracking Test - Bol Food</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #FFC107 0%, #FF9800 100%);
+            color: #1a1a1a;
+            padding: 30px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+        
+        .content {
+            padding: 30px;
+        }
+        
+        .section {
+            margin-bottom: 30px;
+        }
+        
+        .section h2 {
+            color: #667eea;
+            margin-bottom: 15px;
+            font-size: 20px;
+        }
+        
+        .input-group {
+            margin-bottom: 15px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 5px;
+            color: #555;
+            font-weight: 600;
+        }
+        
+        input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+        
+        input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+        
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+        
+        button:active {
+            transform: translateY(0);
+        }
+        
+        button.disconnect {
+            background: linear-gradient(135deg, #f44336 0%, #e91e63 100%);
+        }
+        
+        button.send {
+            background: linear-gradient(135deg, #4CAF50 0%, #8BC34A 100%);
+        }
+        
+        .status {
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            font-weight: 600;
+        }
+        
+        .status.disconnected {
+            background: #ffebee;
+            color: #c62828;
+        }
+        
+        .status.connected {
+            background: #e8f5e9;
+            color: #2e7d32;
+        }
+        
+        .log {
+            background: #f5f5f5;
+            border-radius: 8px;
+            padding: 15px;
+            max-height: 300px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+        }
+        
+        .log-entry {
+            padding: 5px 0;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        
+        .log-entry:last-child {
+            border-bottom: none;
+        }
+        
+        .log-entry.success {
+            color: #2e7d32;
+        }
+        
+        .log-entry.error {
+            color: #c62828;
+        }
+        
+        .log-entry.info {
+            color: #1976d2;
+        }
+        
+        .coordinates {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🛵 WebSocket Tracking Test</h1>
+            <p>Prueba el sistema de tracking en tiempo real</p>
+        </div>
+        
+        <div class="content">
+            <div class="section">
+                <h2>📡 Estado de Conexión</h2>
+                <div id="status" class="status disconnected">
+                    ❌ Desconectado
+                </div>
+            </div>
+            
+            <div class="section">
+                <h2>🔧 Configuración</h2>
+                <div class="input-group">
+                    <label>Driver ID:</label>
+                    <input type="text" id="driverId" placeholder="uuid-del-driver">
+                </div>
+                <button onclick="connect()">🔌 Conectar</button>
+                <button class="disconnect" onclick="disconnect()">🔴 Desconectar</button>
+            </div>
+            
+            <div class="section">
+                <h2>📍 Enviar Ubicación</h2>
+                <div class="coordinates">
+                    <div class="input-group">
+                        <label>Latitud:</label>
+                        <input type="number" id="latitude" value="-17.784000" step="0.000001">
+                    </div>
+                    <div class="input-group">
+                        <label>Longitud:</label>
+                        <input type="number" id="longitude" value="-63.182500" step="0.000001">
+                    </div>
+                </div>
+                <button class="send" onclick="sendLocation()">📤 Enviar Ubicación</button>
+                <button class="send" onclick="startAutoSend()">▶️ Auto-enviar (cada 3s)</button>
+                <button class="disconnect" onclick="stopAutoSend()">⏹️ Detener Auto-envío</button>
+            </div>
+            
+            <div class="section">
+                <h2>📋 Log de Eventos</h2>
+                <div id="log" class="log">
+                    <div class="log-entry info">Esperando conexión...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <script>
+        let socket = null;
+        let autoSendInterval = null;
+        
+        function addLog(message, type = 'info') {
+            const log = document.getElementById('log');
+            const entry = document.createElement('div');
+            entry.className = `log-entry ${type}`;
+            const timestamp = new Date().toLocaleTimeString();
+            entry.textContent = `[${timestamp}] ${message}`;
+            log.appendChild(entry);
+            log.scrollTop = log.scrollHeight;
+        }
+        
+        function updateStatus(connected) {
+            const status = document.getElementById('status');
+            if (connected) {
+                status.className = 'status connected';
+                status.textContent = '✅ Conectado';
+            } else {
+                status.className = 'status disconnected';
+                status.textContent = '❌ Desconectado';
+            }
+        }
+        
+        function connect() {
+            const driverId = document.getElementById('driverId').value;
+            
+            if (!driverId) {
+                alert('Por favor ingresa el Driver ID');
+                return;
+            }
+            
+            if (socket) {
+                addLog('Ya hay una conexión activa', 'error');
+                return;
+            }
+            
+            addLog('Conectando al servidor WebSocket...', 'info');
+            
+            socket = io('http://localhost:3500');
+            
+            socket.on('connect', () => {
+                addLog('✅ Conectado al servidor', 'success');
+                updateStatus(true);
+                
+                // Enviar evento de conexión
+                socket.emit('driver:connect', { driverId });
+                addLog(`Driver ${driverId} conectado`, 'success');
+            });
+            
+            socket.on('disconnect', () => {
+                addLog('❌ Desconectado del servidor', 'error');
+                updateStatus(false);
+                socket = null;
+            });
+            
+            socket.on('connect_error', (error) => {
+                addLog(`Error de conexión: ${error.message}`, 'error');
+                updateStatus(false);
+            });
+            
+            // Escuchar actualizaciones de ubicación
+            socket.on(`driver:${driverId}:location`, (data) => {
+                addLog(`📍 Ubicación actualizada: ${data.latitude}, ${data.longitude}`, 'success');
+            });
+        }
+        
+        function disconnect() {
+            if (socket) {
+                const driverId = document.getElementById('driverId').value;
+                socket.emit('driver:disconnect', { driverId });
+                socket.disconnect();
+                socket = null;
+                addLog('Desconectado manualmente', 'info');
+                updateStatus(false);
+                stopAutoSend();
+            }
+        }
+        
+        function sendLocation() {
+            if (!socket) {
+                alert('Primero debes conectarte');
+                return;
+            }
+            
+            const driverId = document.getElementById('driverId').value;
+            const latitude = parseFloat(document.getElementById('latitude').value);
+            const longitude = parseFloat(document.getElementById('longitude').value);
+            
+            socket.emit('driver:location', {
+                driverId,
+                latitude,
+                longitude
+            });
+            
+            addLog(`📤 Ubicación enviada: ${latitude}, ${longitude}`, 'info');
+        }
+        
+        function startAutoSend() {
+            if (!socket) {
+                alert('Primero debes conectarte');
+                return;
+            }
+            
+            if (autoSendInterval) {
+                addLog('Auto-envío ya está activo', 'error');
+                return;
+            }
+            
+            addLog('▶️ Auto-envío iniciado (cada 3 segundos)', 'success');
+            
+            autoSendInterval = setInterval(() => {
+                // Simular movimiento aleatorio
+                const lat = parseFloat(document.getElementById('latitude').value);
+                const lon = parseFloat(document.getElementById('longitude').value);
+                
+                const newLat = lat + (Math.random() - 0.5) * 0.001;
+                const newLon = lon + (Math.random() - 0.5) * 0.001;
+                
+                document.getElementById('latitude').value = newLat.toFixed(6);
+                document.getElementById('longitude').value = newLon.toFixed(6);
+                
+                sendLocation();
+            }, 3000);
+        }
+        
+        function stopAutoSend() {
+            if (autoSendInterval) {
+                clearInterval(autoSendInterval);
+                autoSendInterval = null;
+                addLog('⏹️ Auto-envío detenido', 'info');
+            }
+        }
+    </script>
+</body>
+</html>
