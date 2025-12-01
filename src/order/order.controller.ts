@@ -18,7 +18,7 @@ export class OrderController {
   constructor(
     private readonly orderService: OrderService,
     private readonly orderAssignmentService: OrderAssignmentService,
-  ) {}
+  ) { }
 
   // Crear orden desde carrito
   @Post()
@@ -153,5 +153,63 @@ export class OrderController {
   @Patch(':id')
   update(@Param('id') id: string, @Body() updateOrderDto: UpdateOrderDto) {
     return this.orderService.update(id, updateOrderDto);
+  }
+
+  /**
+   * DRIVER ACTIONS - Acciones específicas del conductor
+   */
+
+  // Aceptar pedido (Driver)
+  @Post(':id/accept')
+  async acceptOrder(
+    @Param('id') id: string,
+    @Body('driverId') driverId: string,
+  ) {
+    return this.orderService.acceptOrder(id, driverId);
+  }
+
+  // Rechazar pedido (Driver)
+  @Post(':id/reject')
+  async rejectOrder(
+    @Param('id') id: string,
+    @Body('driverId') driverId: string,
+  ) {
+    return this.orderService.rejectOrder(id, driverId);
+  }
+
+  // Conductor llegó al restaurante
+  @Post(':id/arrived-restaurant')
+  async arrivedAtRestaurant(
+    @Param('id') id: string,
+    @Body('driverId') driverId: string,
+  ) {
+    return this.orderService.arrivedAtRestaurant(id, driverId);
+  }
+
+  // Conductor confirmó recogida del pedido
+  @Post(':id/confirm-pickup')
+  async confirmPickup(
+    @Param('id') id: string,
+    @Body('driverId') driverId: string,
+  ) {
+    return this.orderService.confirmPickup(id, driverId);
+  }
+
+  // Conductor llegó a la puerta del cliente
+  @Post(':id/at-door')
+  async atCustomerDoor(
+    @Param('id') id: string,
+    @Body('driverId') driverId: string,
+  ) {
+    return this.orderService.atCustomerDoor(id, driverId);
+  }
+
+  // Conductor confirmó entrega
+  @Post(':id/confirm-delivery')
+  async confirmDelivery(
+    @Param('id') id: string,
+    @Body('driverId') driverId: string,
+  ) {
+    return this.orderService.confirmDelivery(id, driverId);
   }
 }

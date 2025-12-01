@@ -16,17 +16,22 @@ import { CartService } from '../cart/cart.service';
 import { UserService } from '../user/user.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderDto } from './dto/update-order.dto';
+import { Inject, forwardRef } from '@nestjs/common';
+import { DriverService } from '../driver/driver.service';
+import { DriverStatus } from '../driver/entities/driver.entity';
 
 @Injectable()
 export class OrderService {
   constructor(
+    @Inject(forwardRef(() => DriverService))
+    private readonly driverService: DriverService,
     @InjectRepository(Order)
     private readonly orderRepository: Repository<Order>,
     @InjectRepository(OrderItem)
     private readonly orderItemRepository: Repository<OrderItem>,
     private readonly cartService: CartService,
     private readonly userService: UserService,
-  ) {}
+  ) { }
 
   /**
    * Crear orden desde el carrito
@@ -274,9 +279,8 @@ export class OrderService {
 
     order.status = OrderStatus.CANCELLED;
     if (reason) {
-      order.notes = `${
-        order.notes || ''
-      }\nCancellation reason: ${reason}`.trim();
+      order.notes = `${order.notes || ''
+        }\nCancellation reason: ${reason}`.trim();
     }
 
     return this.orderRepository.save(order);
@@ -377,4 +381,193 @@ export class OrderService {
       cancelled,
     };
   }
+
+  /**
+ * Conductor acepta el pedido
+ */
+  async acceptOrder(orderId: string, driverId: string): Promise<Order> {
+    const order = await this.findOne(orderId);
+
+    // Validar que el pedido esté asignado a este conductor
+    if (!order.driver || order.driver.id !== driverId) {
+      throw new BadRequestException(
+        'This order is not assigned to this driver',
+      );
+    }
+
+    // Validar estado
+    if (order.status !== OrderStatus.ASSIGNED) {
+      throw new BadRequestException(
+        `Cannot accept order in status ${order.status}`,
+      );
+    }
+
+    // Actualizar orden
+    order.status = OrderStatus.PICKING_UP;
+    order.acceptedAt = new Date();
+
+    // Actualizar estado del conductor a BUSY
+    await this.driverService.updateStatus(driverId, DriverStatus.BUSY);
+
+    return this.orderRepository.save(order);
+  }
+
+  /**
+   * Conductor rechaza el pedido
+   */
+  async rejectOrder(orderId: string, driverId: string): Promise<Order> {
+    const order = await this.findOne(orderId);
+
+    // Validar que el pedido esté asignado a este conductor
+    if (!order.driver || order.driver.id !== driverId) {
+      throw new BadRequestException(
+        'This order is not assigned to this driver',
+      );
+    }
+
+    // Quitar driver actual y volver a estado CONFIRMED para reasignar
+    order.driver = null;
+    order.status = OrderStatus.CONFIRMED;
+    order.assignedAt = null;
+
+    await this.orderRepository.save(order);
+
+    // TODO: Aquí debería llamarse al servicio de asignación automática
+    // para buscar el siguiente conductor disponible
+
+    return order;
+  }
+
+  /**
+   * Conductor llegó al restaurante
+   */
+  async arrivedAtRestaurant(
+    orderId: string,
+    driverId: string,
+  ): Promise<Order> {
+    const order = await this.findOne(orderId);
+
+    // Validar conductor
+    if (!order.driver || order.driver.id !== driverId) {
+      throw new BadRequestException(
+        'This order is not assigned to this driver',
+      );
+    }
+
+    // Validar estado
+    if (order.status !== OrderStatus.PICKING_UP) {
+      throw new BadRequestException(
+        `Cannot mark arrived at restaurant in status ${order.status}`,
+      );
+    }
+
+    // El estado se mantiene en PICKING_UP, solo es una notificación
+    // El conductor verá la pantalla de confirmación de items
+
+    return order;
+  }
+
+  /**
+   * Conductor confirmó recogida del pedido en el restaurante
+   */
+  async confirmPickup(orderId: string, driverId: string): Promise<Order> {
+    const order = await this.findOne(orderId);
+
+    // Validar conductor
+    if (!order.driver || order.driver.id !== driverId) {
+      throw new BadRequestException(
+        'This order is not assigned to this driver',
+      );
+    }
+
+    // Validar estado
+    if (order.status !== OrderStatus.PICKING_UP) {
+      throw new BadRequestException(
+        `Cannot confirm pickup in status ${order.status}`,
+      );
+    }
+
+    // Actualizar orden
+    order.status = OrderStatus.IN_TRANSIT;
+    order.pickedUpAt = new Date();
+
+    await this.orderRepository.save(order);
+
+    // TODO: Enviar notificación al cliente vía Telegram
+    // Mensaje: "Tu pedido Orden #XXX se encuentra en camino."
+
+    return order;
+  }
+
+  /**
+   * Conductor llegó a la puerta del cliente
+   */
+  async atCustomerDoor(orderId: string, driverId: string): Promise<Order> {
+    const order = await this.findOne(orderId);
+
+    // Validar conductor
+    if (!order.driver || order.driver.id !== driverId) {
+      throw new BadRequestException(
+        'This order is not assigned to this driver',
+      );
+    }
+
+    // Validar estado
+    if (order.status !== OrderStatus.IN_TRANSIT) {
+      throw new BadRequestException(
+        `Cannot mark at door in status ${order.status}`,
+      );
+    }
+
+    // Actualizar orden
+    order.status = OrderStatus.AT_PLACE;
+
+    await this.orderRepository.save(order);
+
+    // TODO: Enviar notificación al cliente vía Telegram
+    // Mensaje: "El conductor está en la puerta de tu domicilio."
+
+    return order;
+  }
+
+  /**
+   * Conductor confirmó entrega del pedido
+   */
+  async confirmDelivery(orderId: string, driverId: string): Promise<Order> {
+    const order = await this.findOne(orderId);
+
+    // Validar conductor
+    if (!order.driver || order.driver.id !== driverId) {
+      throw new BadRequestException(
+        'This order is not assigned to this driver',
+      );
+    }
+
+    // Validar estado
+    if (order.status !== OrderStatus.AT_PLACE) {
+      throw new BadRequestException(
+        `Cannot confirm delivery in status ${order.status}`,
+      );
+    }
+
+    // Actualizar orden
+    order.status = OrderStatus.DELIVERED;
+    order.deliveredAt = new Date();
+
+    // Si es pago en efectivo, marcar como completado
+    if (order.paymentMethod === PaymentMethod.CASH) {
+      order.paymentStatus = PaymentStatus.COMPLETED;
+    }
+
+    await this.orderRepository.save(order);
+
+    // Actualizar estado del conductor a AVAILABLE
+    await this.driverService.updateStatus(driverId, DriverStatus.AVAILABLE);
+
+    // TODO: Enviar notificación al cliente vía Telegram
+    // Mensaje: "Tu pedido ha sido entregado. ¡Buen provecho!"
+
+    return order;
+  }
+
 }
