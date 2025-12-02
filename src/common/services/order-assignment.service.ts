@@ -138,7 +138,7 @@ export class OrderAssignmentService {
   }> {
     const order = await this.orderRepository.findOne({
       where: { id: orderId },
-      relations: ['driver', 'user', 'orderItems'],
+      relations: ['driver', 'user', 'orderItems', 'orderItems.product', 'orderItems.product.images'],
     });
 
     if (!order) {
@@ -234,7 +234,7 @@ export class OrderAssignmentService {
   }> {
     const order = await this.orderRepository.findOne({
       where: { id: orderId },
-      relations: ['driver', 'user', 'orderItems'],
+      relations: ['driver', 'user', 'orderItems', 'orderItems.product', 'orderItems.product.images'],
     });
 
     if (!order) {
