@@ -148,14 +148,23 @@ El conductor se dirige a: <i>${address}</i>
     const telegramId = order.user?.telegramId;
     if (!telegramId) return;
 
-    const total = order.totalAmount?.toFixed(2) || '0.00';
+    const subtotal = order.totalAmount?.toFixed(2) || '0.00';
+    const deliveryFee = order.deliveryFee?.toFixed(2) || '0.00';
+    const total = (
+      (order.totalAmount || 0) + (order.deliveryFee || 0)
+    ).toFixed(2);
 
     const message = `
 ✅ <b>¡Pedido entregado!</b>
 
 🎉 Tu pedido ha sido entregado exitosamente.
 
-💰 <b>Total:</b> ${total} Bs.
+━━━━━━━━━━━━━━━━━━━━
+🛒 Subtotal: Bs. ${subtotal}
+🛵 Delivery: Bs. ${deliveryFee}
+━━━━━━━━━━━━━━━━━━━━
+💵 <b>Total:</b> Bs. ${total}
+━━━━━━━━━━━━━━━━━━━━
 
 ¡Gracias por tu preferencia! 🙏
 Esperamos que disfrutes tu comida. 😋
