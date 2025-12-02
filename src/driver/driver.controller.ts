@@ -17,7 +17,7 @@ import { DriverStatus } from './entities/driver.entity';
 
 @Controller('drivers')
 export class DriverController {
-  constructor(private readonly driverService: DriverService) {}
+  constructor(private readonly driverService: DriverService) { }
 
   // Registro de nuevo driver (público)
   @Post('register')
@@ -78,6 +78,30 @@ export class DriverController {
   @Patch(':id/offline')
   setOffline(@Param('id', ParseUUIDPipe) id: string) {
     return this.driverService.updateStatus(id, DriverStatus.OFFLINE);
+  }
+
+  // Actualizar ubicación (protegido)
+  @UseGuards(AuthGuard)
+  @Post(':id/location')
+  updateLocation(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body()
+    locationData: {
+      latitude: number;
+      longitude: number;
+      accuracy?: number;
+      speed?: number;
+      heading?: number;
+    },
+  ) {
+    return this.driverService.updateLocation(
+      id,
+      locationData.latitude,
+      locationData.longitude,
+      locationData.accuracy,
+      locationData.speed,
+      locationData.heading,
+    );
   }
 
   // Eliminar driver (protegido)
