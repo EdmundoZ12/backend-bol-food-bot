@@ -20,6 +20,7 @@ export enum OrderStatus {
   PICKING_UP = 'PICKING_UP', // Conductor va al restaurante
   PICKED_UP = 'PICKED_UP', // Conductor recogió el pedido
   IN_TRANSIT = 'IN_TRANSIT', // Conductor va al cliente
+  AT_DOOR = 'AT_DOOR', // Conductor está en la puerta del cliente
   DELIVERED = 'DELIVERED', // Entregado
   CANCELLED = 'CANCELLED', // Cancelado
   REJECTED = 'REJECTED', // Rechazado por todos los conductores

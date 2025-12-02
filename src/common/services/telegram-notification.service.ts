@@ -120,6 +120,28 @@ El conductor se dirige a: <i>${address}</i>
   }
 
   /**
+   * Notificar al cliente cuando el conductor está en la puerta
+   */
+  async notifyOrderAtDoor(order: Order): Promise<void> {
+    const telegramId = order.user?.telegramId;
+    if (!telegramId) return;
+
+    const driverName = order.driver ? `${order.driver.name}` : 'El conductor';
+
+    const message = `
+🚪 <b>¡El conductor está en tu puerta!</b>
+
+👨‍💼 <b>${driverName}</b> ha llegado a tu ubicación.
+
+📍 Por favor, sal a recibir tu pedido.
+
+⏱ El conductor te está esperando.
+    `.trim();
+
+    await this.sendMessage(telegramId, message);
+  }
+
+  /**
    * Notificar al cliente cuando el pedido fue entregado
    */
   async notifyOrderDelivered(order: Order): Promise<void> {
@@ -180,6 +202,9 @@ Por favor, intenta de nuevo en unos minutos.
         break;
       case OrderStatus.IN_TRANSIT:
         await this.notifyOrderInTransit(order);
+        break;
+      case OrderStatus.AT_DOOR:
+        await this.notifyOrderAtDoor(order);
         break;
       case OrderStatus.DELIVERED:
         await this.notifyOrderDelivered(order);

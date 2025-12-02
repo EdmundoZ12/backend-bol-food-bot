@@ -80,6 +80,20 @@ export class DriverOrderController {
   }
 
   /**
+   * Actualizar estado: En la puerta del cliente
+   * PATCH /api/driver/orders/:orderId/at-door
+   */
+  @Patch(':orderId/at-door')
+  async markAtDoor(@Param('orderId') orderId: string, @Request() req: any) {
+    const driverId = req.user.sub;
+    return this.orderAssignmentService.updateOrderProgress(
+      orderId,
+      driverId,
+      OrderStatus.AT_DOOR,
+    );
+  }
+
+  /**
    * Actualizar estado: Entregado
    * PATCH /api/driver/orders/:orderId/delivered
    */
