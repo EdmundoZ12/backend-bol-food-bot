@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { TelegramBotService } from './telegram-bot.service';
 import { TelegramBotController } from './telegram-bot.controller';
 import { UserModule } from '../user/user.module';
@@ -17,7 +17,12 @@ import { CartHandler } from './handlers/cart.handler';
 import { CheckoutHandler } from './handlers/checkout.handler';
 
 @Module({
-  imports: [UserModule, ProductModule, CartModule, OrderModule],
+  imports: [
+    UserModule,
+    ProductModule,
+    CartModule,
+    forwardRef(() => OrderModule),
+  ],
   controllers: [TelegramBotController],
   providers: [
     TelegramBotService,

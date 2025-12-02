@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Inject, forwardRef } from '@nestjs/common';
 import { TelegramApiUtil } from '../utils/telegram-api.util';
 import { CartService } from '../../cart/cart.service';
 import { OrderService } from '../../order/order.service';
@@ -20,8 +20,9 @@ export class CheckoutHandler {
   constructor(
     private readonly telegramApi: TelegramApiUtil,
     private readonly cartService: CartService,
+    @Inject(forwardRef(() => OrderService))
     private readonly orderService: OrderService,
-  ) {}
+  ) { }
 
   /**
    * Iniciar checkout
@@ -412,9 +413,8 @@ Usa el botón de abajo o el clip 📎 → Ubicación
     });
 
     message += `\n💵 Total: *Bs. ${order.totalAmount}*\n`;
-    message += `💳 Pago: ${
-      order.paymentMethod === 'CASH' ? 'Efectivo' : 'QR Pagado'
-    }\n`;
+    message += `💳 Pago: ${order.paymentMethod === 'CASH' ? 'Efectivo' : 'QR Pagado'
+      }\n`;
 
     if (order.notes) {
       message += `📝 Nota: ${order.notes}\n`;

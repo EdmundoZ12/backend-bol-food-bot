@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { OrderService } from './order.service';
 import { OrderController } from './order.controller';
 import { TypeOrmModule } from '@nestjs/typeorm';
@@ -18,7 +18,7 @@ import { TelegramBotModule } from '../telegram-bot/telegram-bot.module';
     DriverModule,
     UserModule,
     CartModule,
-    TelegramBotModule,
+    forwardRef(() => TelegramBotModule),
   ],
   providers: [OrderService],
   exports: [TypeOrmModule, OrderService],
