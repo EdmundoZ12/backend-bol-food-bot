@@ -45,7 +45,6 @@ export class OrderAssignmentService {
     this.acceptTimeout = parseInt(
       this.configService.get<string>('DRIVER_ACCEPT_TIMEOUT') || '30000',
     );
-    this.logger.log(`⏱️ Driver Accept Timeout configured to: ${this.acceptTimeout} ms`);
   }
 
   /**

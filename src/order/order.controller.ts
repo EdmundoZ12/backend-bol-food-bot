@@ -69,15 +69,8 @@ export class OrderController {
 
   // Obtener pedido activo de un conductor
   @Get('driver/:driverId/active')
-  async findActiveByDriver(@Param('driverId') driverId: string) {
-    console.log(`🔍 Buscando pedido activo para driver ${driverId}`);
-    const order = await this.orderService.findActiveByDriver(driverId);
-    if (order) {
-      console.log(` Pedido activo encontrado: ${order.id} (${order.status})`);
-    } else {
-      console.log(` No se encontró pedido activo para driver ${driverId}`);
-    }
-    return order;
+  findActiveByDriver(@Param('driverId') driverId: string) {
+    return this.orderService.findActiveByDriver(driverId);
   }
 
   // Obtener una orden
