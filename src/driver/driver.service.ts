@@ -199,4 +199,17 @@ export class DriverService {
     const allDrivers = await this.findAvailableDriversSortedByDistance();
     return allDrivers.filter((driver) => !excludeIds.includes(driver.id));
   }
+
+  async getLastLocation(driverId: string): Promise<{
+    latitude: number | null;
+    longitude: number | null;
+    lastUpdate: Date | null;
+  }> {
+    const driver = await this.findOne(driverId);
+    return {
+      latitude: driver.lastLatitude,
+      longitude: driver.lastLongitude,
+      lastUpdate: driver.lastLocationUpdate,
+    };
+  }
 }

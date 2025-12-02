@@ -12,6 +12,7 @@ import {
 import { DriverService } from './driver.service';
 import { CreateDriverDto } from './dto/create-driver.dto';
 import { UpdateDriverDto } from './dto/update-driver.dto';
+import { UpdateLocationDto } from './dto/update-location.dto';
 import { AuthGuard } from '../auth/guard/auth.guard';
 import { DriverStatus } from './entities/driver.entity';
 
@@ -57,6 +58,30 @@ export class DriverController {
     @Body('status') status: DriverStatus,
   ) {
     return this.driverService.updateStatus(id, status);
+  }
+
+  // Actualizar ubicación del driver (protegido)
+  @UseGuards(AuthGuard)
+  @Post(':id/location')
+  updateLocation(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() updateLocationDto: UpdateLocationDto,
+  ) {
+    return this.driverService.updateLocation(
+      id,
+      updateLocationDto.latitude,
+      updateLocationDto.longitude,
+      updateLocationDto.accuracy,
+      updateLocationDto.speed,
+      updateLocationDto.heading,
+    );
+  }
+
+  // Obtener última ubicación del driver (protegido)
+  @UseGuards(AuthGuard)
+  @Get(':id/location')
+  getLocation(@Param('id', ParseUUIDPipe) id: string) {
+    return this.driverService.getLastLocation(id);
   }
 
   // Ponerse disponible (protegido)

@@ -5,10 +5,11 @@ import { DriverLocation } from './entities/driver-location.entity';
 import { DriverService } from './driver.service';
 import { DriverController } from './driver.controller';
 import { DriverOrderController } from './driver-order.controller';
+import { DriverStatsController } from './driver-stats.controller';
 
 @Module({
   imports: [TypeOrmModule.forFeature([Driver, DriverLocation])],
-  controllers: [DriverController, DriverOrderController],
+  controllers: [DriverController, DriverOrderController, DriverStatsController],
   providers: [DriverService],
   exports: [DriverService],
 })

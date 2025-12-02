@@ -3,15 +3,10 @@ import {
   Post,
   Patch,
   Param,
-  Body,
   UseGuards,
   Request,
-  Get,
 } from '@nestjs/common';
-import {
-  OrderAssignmentService,
-  AssignmentResult,
-} from '../common/services/order-assignment.service';
+import { OrderAssignmentService } from '../common/services/order-assignment.service';
 import { AuthGuard } from '../auth/guard/auth.guard';
 import { OrderStatus } from '../order/entities/order.entity';
 
@@ -27,11 +22,8 @@ export class DriverOrderController {
    * POST /api/driver/orders/:orderId/accept
    */
   @Post(':orderId/accept')
-  async acceptOrder(
-    @Param('orderId') orderId: string,
-    @Request() req: any,
-  ): Promise<AssignmentResult> {
-    const driverId = req.driver.id;
+  async acceptOrder(@Param('orderId') orderId: string, @Request() req: any) {
+    const driverId = req.user.sub; // <-- Corregido: era req.driver.id
     return this.orderAssignmentService.acceptOrder(orderId, driverId);
   }
 
@@ -40,11 +32,8 @@ export class DriverOrderController {
    * POST /api/driver/orders/:orderId/reject
    */
   @Post(':orderId/reject')
-  async rejectOrder(
-    @Param('orderId') orderId: string,
-    @Request() req: any,
-  ): Promise<AssignmentResult> {
-    const driverId = req.driver.id;
+  async rejectOrder(@Param('orderId') orderId: string, @Request() req: any) {
+    const driverId = req.user.sub; // <-- Corregido
     return this.orderAssignmentService.rejectOrder(orderId, driverId);
   }
 
@@ -54,7 +43,7 @@ export class DriverOrderController {
    */
   @Patch(':orderId/picking-up')
   async markPickingUp(@Param('orderId') orderId: string, @Request() req: any) {
-    const driverId = req.driver.id;
+    const driverId = req.user.sub; // <-- Corregido
     return this.orderAssignmentService.updateOrderProgress(
       orderId,
       driverId,
@@ -68,7 +57,7 @@ export class DriverOrderController {
    */
   @Patch(':orderId/picked-up')
   async markPickedUp(@Param('orderId') orderId: string, @Request() req: any) {
-    const driverId = req.driver.id;
+    const driverId = req.user.sub; // <-- Corregido
     return this.orderAssignmentService.updateOrderProgress(
       orderId,
       driverId,
@@ -82,7 +71,7 @@ export class DriverOrderController {
    */
   @Patch(':orderId/in-transit')
   async markInTransit(@Param('orderId') orderId: string, @Request() req: any) {
-    const driverId = req.driver.id;
+    const driverId = req.user.sub; // <-- Corregido
     return this.orderAssignmentService.updateOrderProgress(
       orderId,
       driverId,
@@ -96,7 +85,7 @@ export class DriverOrderController {
    */
   @Patch(':orderId/delivered')
   async markDelivered(@Param('orderId') orderId: string, @Request() req: any) {
-    const driverId = req.driver.id;
+    const driverId = req.user.sub; // <-- Corregido
     return this.orderAssignmentService.updateOrderProgress(
       orderId,
       driverId,
