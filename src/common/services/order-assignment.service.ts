@@ -66,8 +66,11 @@ export class OrderAssignmentService {
         this.pricingService.calculateDriverEarnings(distance);
     }
 
-    // Buscar conductor disponible más cercano
-    const availableDrivers = await this.findAvailableDrivers();
+    // Obtener lista de conductores que ya rechazaron este pedido
+    const rejectedDriverIds = order.rejectedDriverIds || [];
+
+    // Buscar conductor disponible más cercano (excluyendo los que rechazaron)
+    const availableDrivers = await this.findAvailableDrivers(rejectedDriverIds);
 
     if (availableDrivers.length === 0) {
       order.status = OrderStatus.REJECTED;
@@ -76,7 +79,11 @@ export class OrderAssignmentService {
       // Notificar al cliente que no hay drivers
       await this.telegramNotificationService.notifyNoDriversAvailable(order);
 
-      this.logger.warn(`No available drivers for order ${orderId}`);
+      this.logger.warn(
+        `No available drivers for order ${orderId}. Rejected by: ${
+          rejectedDriverIds.join(', ') || 'none'
+        }`,
+      );
       return {
         success: false,
         message: 'No hay conductores disponibles en este momento',
@@ -84,7 +91,7 @@ export class OrderAssignmentService {
       };
     }
 
-    // Tomar el conductor más cercano
+    // Tomar el conductor más cercano (que no haya rechazado)
     const driver = availableDrivers[0];
 
     // Asignar conductor a la orden
@@ -108,7 +115,7 @@ export class OrderAssignmentService {
     }
 
     this.logger.log(
-      `Order ${orderId} assigned to driver ${driver.id}. Waiting for acceptance...`,
+      `Order ${orderId} assigned to driver ${driver.id} (attempt ${order.assignmentAttempts}). Waiting for acceptance...`,
     );
 
     return {
@@ -191,14 +198,25 @@ export class OrderAssignmentService {
       throw new BadRequestException('Este pedido no está asignado a ti');
     }
 
+    // Agregar conductor a la lista de rechazos
+    const rejectedIds = order.rejectedDriverIds || [];
+    if (!rejectedIds.includes(driverId)) {
+      rejectedIds.push(driverId);
+    }
+    order.rejectedDriverIds = rejectedIds;
+
     // Quitar asignación
     order.driver = null;
-    order.status = OrderStatus.CONFIRMED;
+    order.status = OrderStatus.SEARCHING_DRIVER;
     await this.orderRepository.save(order);
 
-    this.logger.log(`Order ${orderId} rejected by driver ${driverId}`);
+    this.logger.log(
+      `Order ${orderId} rejected by driver ${driverId}. Rejected drivers: ${rejectedIds.join(
+        ', ',
+      )}`,
+    );
 
-    // Intentar reasignar a otro conductor
+    // Intentar reasignar a otro conductor (excluyendo los que ya rechazaron)
     return this.assignOrder(orderId);
   }
 
@@ -263,8 +281,11 @@ export class OrderAssignmentService {
 
   /**
    * Encontrar conductores disponibles ordenados por distancia
+   * @param excludeDriverIds - IDs de conductores a excluir (los que ya rechazaron)
    */
-  private async findAvailableDrivers(): Promise<Driver[]> {
+  private async findAvailableDrivers(
+    excludeDriverIds: string[] = [],
+  ): Promise<Driver[]> {
     const drivers = await this.driverRepository.find({
       where: {
         status: DriverStatus.AVAILABLE,
@@ -272,9 +293,10 @@ export class OrderAssignmentService {
       },
     });
 
-    // Filtrar drivers con ubicación y ordenar por distancia al restaurante
+    // Filtrar drivers con ubicación, excluir los que rechazaron, y ordenar por distancia
     const driversWithDistance = drivers
       .filter((d) => d.lastLatitude && d.lastLongitude)
+      .filter((d) => !excludeDriverIds.includes(d.id)) // <-- EXCLUIR RECHAZADOS
       .map((driver) => ({
         driver,
         distance: this.distanceService.calculateDistanceFromRestaurant(

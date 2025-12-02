@@ -16,6 +16,8 @@ import { CartService } from '../cart/cart.service';
 import { UserService } from '../user/user.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderDto } from './dto/update-order.dto';
+import { DistanceService } from '../common/services/distance.service';
+import { PricingService } from '../common/services/pricing.service';
 
 @Injectable()
 export class OrderService {
@@ -26,6 +28,8 @@ export class OrderService {
     private readonly orderItemRepository: Repository<OrderItem>,
     private readonly cartService: CartService,
     private readonly userService: UserService,
+    private readonly distanceService: DistanceService,
+    private readonly pricingService: PricingService,
   ) {}
 
   /**
@@ -136,7 +140,7 @@ export class OrderService {
   }
 
   /**
-   * Establecer ubicación del pedido
+   * Establecer ubicación del pedido Y CALCULAR DELIVERY FEE
    */
   async setLocation(
     orderId: string,
@@ -153,7 +157,81 @@ export class OrderService {
       order.deliveryAddress = address;
     }
 
+    // NUEVO: Calcular y guardar delivery fee automáticamente
+    const distance = this.distanceService.calculateDistanceFromRestaurant(
+      latitude,
+      longitude,
+    );
+    order.deliveryDistance = distance;
+    order.deliveryFee = this.pricingService.calculateDeliveryFee(distance);
+    order.driverEarnings =
+      this.pricingService.calculateDriverEarnings(distance);
+
     return this.orderRepository.save(order);
+  }
+
+  /**
+   * NUEVO: Calcular delivery fee sin crear orden
+   * Útil para mostrar el costo al cliente ANTES de confirmar
+   */
+  async calculateDeliveryFee(
+    latitude: number,
+    longitude: number,
+  ): Promise<{
+    distance: number;
+    deliveryFee: number;
+    driverEarnings: number;
+    estimatedTime: number;
+    priceBreakdown: {
+      basePrice: number;
+      distancePrice: number;
+      total: number;
+    };
+  }> {
+    const distance = this.distanceService.calculateDistanceFromRestaurant(
+      latitude,
+      longitude,
+    );
+    const deliveryFee = this.pricingService.calculateDeliveryFee(distance);
+    const driverEarnings =
+      this.pricingService.calculateDriverEarnings(distance);
+    const priceBreakdown = this.pricingService.getPriceBreakdown(distance);
+
+    // Estimación: ~8 minutos por km (incluye tiempo de preparación base)
+    const estimatedTime = Math.max(15, Math.round(distance * 8));
+
+    return {
+      distance: Math.round(distance * 100) / 100,
+      deliveryFee,
+      driverEarnings,
+      estimatedTime,
+      priceBreakdown,
+    };
+  }
+
+  /**
+   * Calcular delivery fee de forma síncrona (para uso interno)
+   */
+  calculateDeliveryFeeByLocation(
+    latitude: number,
+    longitude: number,
+  ): {
+    distance: number;
+    deliveryFee: number;
+    estimatedTime: number;
+  } {
+    const distance = this.distanceService.calculateDistanceFromRestaurant(
+      latitude,
+      longitude,
+    );
+    const deliveryFee = this.pricingService.calculateDeliveryFee(distance);
+    const estimatedTime = Math.max(15, Math.round(distance * 8));
+
+    return {
+      distance: Math.round(distance * 100) / 100,
+      deliveryFee,
+      estimatedTime,
+    };
   }
 
   /**
@@ -299,7 +377,7 @@ export class OrderService {
   }
 
   /**
-   * Obtener resumen de la orden (para el bot)
+   * Obtener resumen de la orden (para el bot) - INCLUYE DELIVERY FEE
    */
   async getOrderSummary(orderId: string): Promise<{
     orderId: string;
@@ -307,6 +385,9 @@ export class OrderService {
     paymentMethod: string | null;
     paymentStatus: string;
     totalAmount: number;
+    deliveryFee: number | null;
+    deliveryDistance: number | null;
+    totalWithDelivery: number;
     items: Array<{
       productName: string;
       quantity: number;
@@ -318,6 +399,8 @@ export class OrderService {
     phone?: string | null;
   }> {
     const order = await this.findOne(orderId);
+    const deliveryFee = order.deliveryFee || 0;
+    const totalWithDelivery = order.totalAmount + deliveryFee;
 
     return {
       orderId: order.id,
@@ -325,6 +408,9 @@ export class OrderService {
       paymentMethod: order.paymentMethod,
       paymentStatus: order.paymentStatus,
       totalAmount: order.totalAmount,
+      deliveryFee: order.deliveryFee,
+      deliveryDistance: order.deliveryDistance,
+      totalWithDelivery,
       items: order.orderItems.map((item) => ({
         productName: item.productName,
         quantity: item.quantity,

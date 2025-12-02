@@ -89,6 +89,9 @@ export class Order {
   @Column({ type: 'int', default: 0 })
   assignmentAttempts: number; // Intentos de asignación
 
+  @Column({ type: 'simple-array', nullable: true })
+  rejectedDriverIds: string[] | null; // IDs de conductores que rechazaron este pedido
+
   @Column({ type: 'timestamp', nullable: true })
   assignedAt: Date | null; // Cuando se asignó al conductor
 
