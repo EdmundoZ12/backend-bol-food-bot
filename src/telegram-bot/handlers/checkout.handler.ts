@@ -395,7 +395,7 @@ Una vez realizado el pago, presiona el botón:
       message += `🍽️ ${item.productName} x${item.quantity}\n`;
     });
 
-    message += `\n💵 Total: *Bs. ${order.totalAmount}*\n`;
+    message += `\n💵 Total: *Bs. ${Number(order.totalAmount).toFixed(2)}*\n`;
     message += `💳 Pago: ${order.paymentMethod === 'CASH' ? 'Efectivo' : 'QR Pagado'}\n`;
 
     if (order.notes) {

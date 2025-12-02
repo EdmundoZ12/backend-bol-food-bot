@@ -80,7 +80,6 @@ export class OrderService {
     order.phone = user.phone || null;
 
     // Usar referencia parcial para evitar actualizaciones no deseadas en User
-    // User usa telegramId como PK
     order.user = { telegramId: user.telegramId } as any;
 
     // Nuevos campos
@@ -371,7 +370,18 @@ export class OrderService {
   async acceptOrder(orderId: string, driverId: string): Promise<Order> {
     const order = await this.findOne(orderId);
 
+    console.log(`[acceptOrder] Attempting to accept order ${orderId} by driver ${driverId}`);
+    console.log(`[acceptOrder] Current Status: ${order.status}`);
+    console.log(`[acceptOrder] Current Driver: ${order.driver?.id}`);
+
+    // Si la orden ya está asignada a este conductor, permitimos continuar
+    if (order.status === OrderStatus.ASSIGNED && order.driver?.id === driverId) {
+      console.log('[acceptOrder] Order already assigned to this driver. Allowing re-acceptance.');
+      return order;
+    }
+
     if (order.status !== OrderStatus.CONFIRMED) {
+      console.error(`[acceptOrder] Failed: Status is ${order.status}, expected CONFIRMED. Driver mismatch? ${order.driver?.id} !== ${driverId}`);
       throw new BadRequestException('Order is not available for acceptance');
     }
 
