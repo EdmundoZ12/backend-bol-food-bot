@@ -433,6 +433,9 @@ Usa el botón de abajo o el clip 📎 → Ubicación
       CartKeyboard.orderConfirmed(),
     );
 
+    // Iniciar búsqueda de conductor
+    await this.orderService.startAssignment(orderId);
+
     // Limpiar estado del usuario
     this.userStates.delete(userId);
   }

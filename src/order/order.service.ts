@@ -143,15 +143,19 @@ export class OrderService {
 
     const savedOrder = await this.orderRepository.save(order);
 
-    // Iniciar proceso de asignación automática de conductor
-    try {
-      await this.orderAssignmentService.assignOrder(savedOrder.id);
-    } catch (error) {
-      console.error('Error al asignar conductor:', error);
-      // No lanzamos el error para que el pago se confirme de todas formas
-    }
-
     return savedOrder;
+  }
+
+  /**
+   * Iniciar asignación de conductor (después de tener ubicación)
+   */
+  async startAssignment(orderId: string): Promise<void> {
+    try {
+      console.log(`🚀 Iniciando asignación para orden ${orderId}`);
+      await this.orderAssignmentService.assignOrder(orderId);
+    } catch (error) {
+      console.error('Error al iniciar asignación:', error);
+    }
   }
 
   /**
