@@ -11,4 +11,16 @@ export class CreateOrderDto {
   @IsEnum(['CASH', 'QR'])
   @IsOptional()
   paymentMethod?: 'CASH' | 'QR';
+
+  @IsNumber()
+  @IsOptional()
+  latitude?: number;
+
+  @IsNumber()
+  @IsOptional()
+  longitude?: number;
+
+  @IsNumber()
+  @IsOptional()
+  deliveryFee?: number;
 }

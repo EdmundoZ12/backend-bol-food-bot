@@ -81,6 +81,19 @@ export class OrderService {
     order.phone = user.phone || null;
     order.user = user;
 
+    // Nuevos campos
+    if (createOrderDto.latitude && createOrderDto.longitude) {
+      order.latitude = createOrderDto.latitude;
+      order.longitude = createOrderDto.longitude;
+    }
+
+    if (createOrderDto.deliveryFee) {
+      order.deliveryFee = createOrderDto.deliveryFee;
+      order.totalAmount = totalAmount + createOrderDto.deliveryFee; // Sumar delivery al total
+    } else {
+      order.totalAmount = totalAmount;
+    }
+
     await this.orderRepository.save(order);
 
     // Crear order items desde cart items
