@@ -71,7 +71,6 @@ export class OrderService {
 
     // Crear orden
     const order = this.orderRepository.create();
-    order.totalAmount = totalAmount;
     order.status = OrderStatus.PENDING;
     order.paymentMethod = paymentMethod
       ? PaymentMethod[paymentMethod as keyof typeof PaymentMethod]
@@ -79,11 +78,36 @@ export class OrderService {
     order.paymentStatus = PaymentStatus.PENDING;
     order.notes = notes || null;
     order.phone = user.phone || null;
-    order.user = user;
+
+    // Usar referencia parcial para evitar actualizaciones no deseadas en User
+    // User usa telegramId como PK
+    order.user = { telegramId: user.telegramId } as any;
+
+    // Nuevos campos
+    if (createOrderDto.latitude && createOrderDto.longitude) {
+      order.latitude = createOrderDto.latitude;
+      order.longitude = createOrderDto.longitude;
+    }
+
+    if (createOrderDto.deliveryFee) {
+      order.deliveryFee = createOrderDto.deliveryFee;
+      // Asignar ganancia del conductor igual al delivery fee
+      order.driverEarnings = createOrderDto.deliveryFee;
+
+      // Sumar delivery al total y redondear a 2 decimales
+      const totalWithDelivery = totalAmount + createOrderDto.deliveryFee;
+      order.totalAmount = Math.round(totalWithDelivery * 100) / 100;
+    } else {
+      order.totalAmount = Math.round(totalAmount * 100) / 100;
+    }
+
+    await this.orderRepository.save(order);
+
+    // Crear order items desde cart items
     const orderItems = cart.cartItems.map((cartItem) => {
       return this.orderItemRepository.create({
-        order,
-        product: cartItem.product,
+        order: { id: order.id } as any, // Referencia parcial
+        product: { id: cartItem.product.id } as any, // Referencia parcial
         productName: cartItem.product.name,
         quantity: cartItem.quantity,
         unitPrice: cartItem.unitPrice,
@@ -219,6 +243,13 @@ export class OrderService {
   }
 
   /**
+   * Obtener resumen de orden (Alias para findOne por compatibilidad)
+   */
+  async getOrderSummary(orderId: string): Promise<Order> {
+    return this.findOne(orderId);
+  }
+
+  /**
    * Obtener todas las órdenes de un usuario
    */
   async findByUser(userId: string): Promise<Order[]> {
@@ -287,121 +318,44 @@ export class OrderService {
       order: { createdAt: 'DESC' },
     });
 
-    return order || null;
+    return order;
   }
 
-  /**
-   * Actualizar orden
-   */
   async update(id: string, updateOrderDto: UpdateOrderDto): Promise<Order> {
     const order = await this.findOne(id);
-    Object.assign(order, updateOrderDto);
+    // Usar any para evitar conflictos de tipos estrictos en el merge si el DTO no coincide exactamente
+    this.orderRepository.merge(order, updateOrderDto as any);
     return this.orderRepository.save(order);
   }
 
-  /**
-   * Cancelar orden
-   */
   async cancel(orderId: string, reason?: string): Promise<Order> {
     const order = await this.findOne(orderId);
 
-    if (order.status === OrderStatus.DELIVERED) {
-      throw new BadRequestException('Cannot cancel a delivered order');
+    if (order.status === OrderStatus.CANCELLED) {
+      return order;
     }
 
     order.status = OrderStatus.CANCELLED;
-    if (reason) {
-      order.notes = `${order.notes || ''
-        }\nCancellation reason: ${reason}`.trim();
-    }
+    // order.cancellationReason = reason; // Si agregas este campo a la entidad
 
     return this.orderRepository.save(order);
   }
 
-  /**
-   * Marcar orden como entregada
-   */
   async markAsDelivered(orderId: string): Promise<Order> {
     const order = await this.findOne(orderId);
-
     order.status = OrderStatus.DELIVERED;
-
-    // Si es pago en efectivo, marcar como completado al entregar
-    if (order.paymentMethod === PaymentMethod.CASH) {
-      order.paymentStatus = PaymentStatus.COMPLETED;
-    }
-
+    order.paymentStatus = PaymentStatus.COMPLETED;
     return this.orderRepository.save(order);
   }
 
-  /**
-   * Obtener resumen de la orden (para el bot)
-   */
-  async getOrderSummary(orderId: string): Promise<{
-    orderId: string;
-    status: string;
-    paymentMethod: string | null;
-    paymentStatus: string;
-    totalAmount: number;
-    items: Array<{
-      productName: string;
-      quantity: number;
-      unitPrice: number;
-      subtotal: number;
-    }>;
-    deliveryAddress?: string | null;
-    notes?: string | null;
-    phone?: string | null;
-  }> {
-    const order = await this.findOne(orderId);
-
-    return {
-      orderId: order.id,
-      status: order.status,
-      paymentMethod: order.paymentMethod,
-      paymentStatus: order.paymentStatus,
-      totalAmount: order.totalAmount,
-      items: order.orderItems.map((item) => ({
-        productName: item.productName,
-        quantity: item.quantity,
-        unitPrice: item.unitPrice,
-        subtotal: item.subTotal,
-      })),
-      deliveryAddress: order.deliveryAddress,
-      notes: order.notes,
-      phone: order.phone,
-    };
-  }
-
-  /**
-   * Obtener estadísticas de órdenes (opcional, para dashboard)
-   */
-  async getStats(): Promise<{
-    total: number;
-    pending: number;
-    confirmed: number;
-    assigned: number;
-    inTransit: number;
-    delivered: number;
-    cancelled: number;
-  }> {
-    const [
-      total,
-      pending,
-      confirmed,
-      assigned,
-      inTransit,
-      delivered,
-      cancelled,
-    ] = await Promise.all([
-      this.orderRepository.count(),
-      this.orderRepository.count({ where: { status: OrderStatus.PENDING } }),
-      this.orderRepository.count({ where: { status: OrderStatus.CONFIRMED } }),
-      this.orderRepository.count({ where: { status: OrderStatus.ASSIGNED } }),
-      this.orderRepository.count({ where: { status: OrderStatus.IN_TRANSIT } }),
-      this.orderRepository.count({ where: { status: OrderStatus.DELIVERED } }),
-      this.orderRepository.count({ where: { status: OrderStatus.CANCELLED } }),
-    ]);
+  async getStats() {
+    const total = await this.orderRepository.count();
+    const pending = await this.orderRepository.count({ where: { status: OrderStatus.PENDING } });
+    const confirmed = await this.orderRepository.count({ where: { status: OrderStatus.CONFIRMED } });
+    const assigned = await this.orderRepository.count({ where: { status: OrderStatus.ASSIGNED } });
+    const inTransit = await this.orderRepository.count({ where: { status: OrderStatus.IN_TRANSIT } });
+    const delivered = await this.orderRepository.count({ where: { status: OrderStatus.DELIVERED } });
+    const cancelled = await this.orderRepository.count({ where: { status: OrderStatus.CANCELLED } });
 
     return {
       total,
@@ -414,227 +368,90 @@ export class OrderService {
     };
   }
 
-  /**
- * Conductor acepta el pedido
- */
   async acceptOrder(orderId: string, driverId: string): Promise<Order> {
     const order = await this.findOne(orderId);
 
-    // Validar que el pedido esté asignado a este conductor
-    if (!order.driver || order.driver.id !== driverId) {
-      throw new BadRequestException(
-        'This order is not assigned to this driver',
-      );
+    if (order.status !== OrderStatus.CONFIRMED) {
+      throw new BadRequestException('Order is not available for acceptance');
     }
 
-    // Validar estado
-    if (order.status !== OrderStatus.ASSIGNED) {
-      throw new BadRequestException(
-        `Cannot accept order in status ${order.status}`,
-      );
-    }
-
-    // Actualizar orden
-    order.status = OrderStatus.PICKING_UP;
-    order.acceptedAt = new Date();
-
-    // Actualizar estado del conductor a BUSY
-    await this.driverService.updateStatus(driverId, DriverStatus.BUSY);
+    order.driver = { id: driverId } as any;
+    order.status = OrderStatus.ASSIGNED;
 
     return this.orderRepository.save(order);
   }
 
-  /**
-   * Conductor rechaza el pedido
-   */
+  async arrivedAtRestaurant(orderId: string, driverId: string): Promise<Order> {
+    const order = await this.findOne(orderId);
+
+    if (order.driver?.id !== driverId) {
+      throw new BadRequestException('Order does not belong to this driver');
+    }
+
+    order.status = OrderStatus.PICKING_UP;
+    return this.orderRepository.save(order);
+  }
+
+  // Alias para compatibilidad con controlador
+  async confirmPickup(orderId: string, driverId: string): Promise<Order> {
+    return this.arrivedAtRestaurant(orderId, driverId);
+  }
+
+  async startDelivery(orderId: string, driverId: string): Promise<Order> {
+    const order = await this.findOne(orderId);
+
+    if (order.driver?.id !== driverId) {
+      throw new BadRequestException('Order does not belong to this driver');
+    }
+
+    order.status = OrderStatus.IN_TRANSIT;
+    return this.orderRepository.save(order);
+  }
+
+  async arrivedAtCustomer(orderId: string, driverId: string): Promise<Order> {
+    const order = await this.findOne(orderId);
+
+    if (order.driver?.id !== driverId) {
+      throw new BadRequestException('Order does not belong to this driver');
+    }
+
+    order.status = OrderStatus.AT_PLACE;
+    return this.orderRepository.save(order);
+  }
+
+  // Alias para compatibilidad con controlador
+  async atCustomerDoor(orderId: string, driverId: string): Promise<Order> {
+    return this.arrivedAtCustomer(orderId, driverId);
+  }
+
+  async completeDelivery(orderId: string, driverId: string): Promise<Order> {
+    const order = await this.findOne(orderId);
+
+    if (order.driver?.id !== driverId) {
+      throw new BadRequestException('Order does not belong to this driver');
+    }
+
+    order.status = OrderStatus.DELIVERED;
+    order.paymentStatus = PaymentStatus.COMPLETED;
+
+    return this.orderRepository.save(order);
+  }
+
+  // Alias para compatibilidad con controlador
+  async confirmDelivery(orderId: string, driverId: string): Promise<Order> {
+    return this.completeDelivery(orderId, driverId);
+  }
+
   async rejectOrder(orderId: string, driverId: string): Promise<Order> {
     const order = await this.findOne(orderId);
 
-    // Validar que el pedido esté asignado a este conductor
-    if (!order.driver || order.driver.id !== driverId) {
-      throw new BadRequestException(
-        'This order is not assigned to this driver',
-      );
+    // Lógica para rechazar (quizás reasignar o marcar como rechazado por este driver)
+    // Por ahora solo desasignamos
+    if (order.driver?.id === driverId) {
+      order.driver = null;
+      order.status = OrderStatus.CONFIRMED; // Volver a poner disponible
     }
 
-    // Quitar driver actual y volver a estado CONFIRMED para reasignar
-    order.driver = null;
-    order.status = OrderStatus.CONFIRMED;
-    order.assignedAt = null;
-
-    await this.orderRepository.save(order);
-
-    // TODO: Aquí debería llamarse al servicio de asignación automática
-    // para buscar el siguiente conductor disponible
-
-    return order;
+    return this.orderRepository.save(order);
   }
-
-  /**
-   * Conductor llegó al restaurante
-   */
-  async arrivedAtRestaurant(
-    orderId: string,
-    driverId: string,
-  ): Promise<Order> {
-    const order = await this.findOne(orderId);
-
-    // Validar conductor
-    if (!order.driver || order.driver.id !== driverId) {
-      throw new BadRequestException(
-        'This order is not assigned to this driver',
-      );
-    }
-
-    // Validar estado
-    if (order.status !== OrderStatus.PICKING_UP) {
-      throw new BadRequestException(
-        `Cannot mark arrived at restaurant in status ${order.status}`,
-      );
-    }
-
-    // El estado se mantiene en PICKING_UP, solo es una notificación
-    // El conductor verá la pantalla de confirmación de items
-
-    return order;
-  }
-
-  /**
-   * Conductor confirmó recogida del pedido en el restaurante
-   */
-  async confirmPickup(orderId: string, driverId: string): Promise<Order> {
-    const order = await this.findOne(orderId);
-
-    // Validar conductor
-    if (!order.driver || order.driver.id !== driverId) {
-      throw new BadRequestException(
-        'This order is not assigned to this driver',
-      );
-    }
-
-    // Validar estado
-    if (order.status !== OrderStatus.PICKING_UP) {
-      throw new BadRequestException(
-        `Cannot confirm pickup in status ${order.status}`,
-      );
-    }
-
-    // Actualizar orden
-    order.status = OrderStatus.IN_TRANSIT;
-    order.pickedUpAt = new Date();
-
-    await this.orderRepository.save(order);
-
-    // Enviar notificación al cliente vía Telegram
-    if (order.user?.telegramId) {
-      const orderShortId = order.id.substring(0, 8).toUpperCase();
-      const message = `🚗 *Tu pedido está en camino*\n\nOrden #${orderShortId}\n\nEl conductor ha recogido tu pedido y se dirige a tu domicilio.`;
-
-      try {
-        await this.telegramApi.sendMessage(
-          parseInt(order.user.telegramId),
-          message,
-        );
-      } catch (error) {
-        console.error('Error sending Telegram notification:', error);
-      }
-    }
-
-    return order;
-  }
-
-  /**
-   * Conductor llegó a la puerta del cliente
-   */
-  async atCustomerDoor(orderId: string, driverId: string): Promise<Order> {
-    const order = await this.findOne(orderId);
-
-    // Validar conductor
-    if (!order.driver || order.driver.id !== driverId) {
-      throw new BadRequestException(
-        'This order is not assigned to this driver',
-      );
-    }
-
-    // Validar estado
-    if (order.status !== OrderStatus.IN_TRANSIT) {
-      throw new BadRequestException(
-        `Cannot mark at door in status ${order.status}`,
-      );
-    }
-
-    // Actualizar orden
-    order.status = OrderStatus.AT_PLACE;
-
-    await this.orderRepository.save(order);
-
-    // Enviar notificación al cliente vía Telegram
-    if (order.user?.telegramId) {
-      const message = `🚪 *El conductor está en la puerta*\n\nTu pedido ha llegado. Por favor, sal a recogerlo.`;
-
-      try {
-        await this.telegramApi.sendMessage(
-          parseInt(order.user.telegramId),
-          message,
-        );
-      } catch (error) {
-        console.error('Error sending Telegram notification:', error);
-      }
-    }
-
-    return order;
-  }
-
-  /**
-   * Conductor confirmó entrega del pedido
-   */
-  async confirmDelivery(orderId: string, driverId: string): Promise<Order> {
-    const order = await this.findOne(orderId);
-
-    // Validar conductor
-    if (!order.driver || order.driver.id !== driverId) {
-      throw new BadRequestException(
-        'This order is not assigned to this driver',
-      );
-    }
-
-    // Validar estado
-    if (order.status !== OrderStatus.AT_PLACE) {
-      throw new BadRequestException(
-        `Cannot confirm delivery in status ${order.status}`,
-      );
-    }
-
-    // Actualizar orden
-    order.status = OrderStatus.DELIVERED;
-    order.deliveredAt = new Date();
-
-    // Si es pago en efectivo, marcar como completado
-    if (order.paymentMethod === PaymentMethod.CASH) {
-      order.paymentStatus = PaymentStatus.COMPLETED;
-    }
-
-    await this.orderRepository.save(order);
-
-    // Actualizar estado del conductor a AVAILABLE
-    await this.driverService.updateStatus(driverId, DriverStatus.AVAILABLE);
-
-    // Enviar notificación al cliente vía Telegram
-    if (order.user?.telegramId) {
-      const orderShortId = order.id.substring(0, 8).toUpperCase();
-      const message = `✅ *¡Pedido entregado!*\n\nOrden #${orderShortId}\n\n¡Buen provecho! Gracias por tu preferencia. 🍔`;
-
-      try {
-        await this.telegramApi.sendMessage(
-          parseInt(order.user.telegramId),
-          message,
-        );
-      } catch (error) {
-        console.error('Error sending Telegram notification:', error);
-      }
-    }
-
-    return order;
-  }
-
 }

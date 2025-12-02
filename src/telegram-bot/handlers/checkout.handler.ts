@@ -391,7 +391,7 @@ Una vez realizado el pago, presiona el botón:
     message += `📦 Número de pedido: #${orderId.substring(0, 8)}\n\n`;
     message += `*Resumen:*\n`;
 
-    order.items.forEach((item) => {
+    order.orderItems.forEach((item) => {
       message += `🍽️ ${item.productName} x${item.quantity}\n`;
     });
 
