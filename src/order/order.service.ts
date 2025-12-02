@@ -326,7 +326,12 @@ export class OrderService {
   async findByDriver(driverId: string): Promise<Order[]> {
     return this.orderRepository.find({
       where: { driver: { id: driverId } },
-      relations: ['orderItems', 'user'],
+      relations: [
+        'orderItems',
+        'orderItems.product',
+        'orderItems.product.images',
+        'user',
+      ],
       order: { createdAt: 'DESC' },
     });
   }
